@@ -8,24 +8,24 @@ public class JavaParser1_7
     /* @bgen(jjtree) */ implements JavaParser1_7TreeConstants, JavaParser1_7Constants {/* @bgen(jjtree) */
   protected JJTJavaParser1_7State jjtree = new JJTJavaParser1_7State();
 
-  private static int parseFilesFromFileList(String fileName) {
-    DataInputStream str = null;
+  private static int parseFilesFromFileList(String list_of_files) {
+    DataInputStream list_of_files_input_stream = null;
     int cnt = 0;
     try {
-      str = new DataInputStream(new FileInputStream(new File(fileName)));
-      String s;
+      list_of_files_input_stream = new DataInputStream(new FileInputStream(new File(list_of_files)));
+      String file_name;
 
-      while ((s = str.readLine()) != null) {
+      while ((file_name = list_of_files_input_stream.readLine()) != null) {
         try {
           cnt++;
-          System.out.println("Parsing: " + s);
-          JavaParser1_7 parser = new JavaParser1_7(s);
+          System.out.println("Parsing: " + file_name);
+          JavaParser1_7 parser = new JavaParser1_7(file_name);
 
           // Dump syntax tree
           // SimpleNode n = parser.CompilationUnit();
           // n.dump(" ");
 
-          ExampleVisitor vis = new ExampleVisitor(s);
+          ExampleVisitor vis = new ExampleVisitor(file_name);
           parser.CompilationUnit().jjtAccept(vis, null);
 
         } catch (ParseException e) {
@@ -39,9 +39,9 @@ public class JavaParser1_7
     } catch (Exception e) {
       e.printStackTrace();
     } finally {
-      if (str != null)
+      if (list_of_files_input_stream != null)
         try {
-          str.close();
+          list_of_files_input_stream.close();
         } catch (Exception e) {
         }
     }
@@ -104,6 +104,7 @@ public class JavaParser1_7
     } else {
       JavaParser1_7.m(args);
     }
+    DotHandler.getInstance().finish();
     System.out.println("Parsed " + cnt + " files in: " + (System.currentTimeMillis() - l));
   }
 
