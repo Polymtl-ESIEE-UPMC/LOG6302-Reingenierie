@@ -6,7 +6,6 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public ExampleVisitor(String filename) {
 		// this.filename = filename;
-		dot_handler_instance.init();
 	}
 
 	// TODO: Read theory about UML
