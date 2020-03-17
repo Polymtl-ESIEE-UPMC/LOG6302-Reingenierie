@@ -12,10 +12,10 @@ public class CustomString {
   }
 
   public CustomString indent(int n) {
-    if (n < 1)
-      n = 1;
+    if (n < 0)
+      throw new Error("Expect positive value in indent function of class CustomString, instead having " + n);
     for (int i = 0; i < n; i++) {
-      this.str = " " + this.str;
+      this.str = "  " + this.str;
     }
     return this;
   }
