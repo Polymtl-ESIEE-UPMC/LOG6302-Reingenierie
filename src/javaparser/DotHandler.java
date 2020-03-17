@@ -39,7 +39,7 @@ public class DotHandler {
     return dot_handler_instance;
   }
 
-  private DotHandler write(String str) {
+  public DotHandler write(String str) {
     try {
       this.output_stream_uml_dot_file.write(str.getBytes());
     } catch (IOException e) {
