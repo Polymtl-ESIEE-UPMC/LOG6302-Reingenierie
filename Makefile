@@ -25,4 +25,5 @@ mrproper: clean
 	rm -rf *~ $(GRAMMAR).html
 
 run:
+	rm -rf results
 	java -cp bin javaparser.JavaParser1_7 @log 
