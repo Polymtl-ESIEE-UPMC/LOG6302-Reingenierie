@@ -21,9 +21,16 @@ compile:
 clean:
 	rm -rf bin
 
+clear:
+	rm -rf results
+	rm -rf uml
+
 mrproper: clean
 	rm -rf *~ $(GRAMMAR).html
 
-run:
-	rm -rf results
-	java -cp bin javaparser.JavaParser1_7 @log 
+run: clear
+	java -cp bin javaparser.JavaParser1_7 @log
+
+start: run
+	find results/dot -type f -name "*.dot" | xargs dot -Tpng -O
+	mkdir -p results/uml && mv results/dot/*.png results/uml
