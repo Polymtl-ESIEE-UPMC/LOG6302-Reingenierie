@@ -33,6 +33,14 @@ public class DotHandler {
       this.name = name;
     }
 
+    public void addField(final String name, final String type) {
+      field.add(new MethodOrField(name, type));
+    }
+
+    public void addMethod(final String name, final String type) {
+      method.add(new MethodOrField(name, type));
+    }
+
     public String toString() {
       String s = "label = \"{" + this.name + "|";
       for (int i = 0; i < this.field.size(); i++) {
@@ -135,11 +143,13 @@ public class DotHandler {
 
     private void writeRelation(final DotNode dot_node) {
       for (int i = 0; i < dot_node.children.size(); i++) {
-        writeln(dot_node.children.get(i) + " -> " + dot_node.name);
+        writeln(dot_node.children.get(i).name + " -> " + dot_node.name);
+        newLine();
         writeNode(dot_node.children.get(i));
       }
       for (int i = 0; i < dot_node.parents.size(); i++) {
-        writeln(dot_node.name + " -> " + dot_node.parents.get(i));
+        writeln(dot_node.name + " -> " + dot_node.parents.get(i).name);
+        newLine();
         writeNode(dot_node.parents.get(i));
       }
     }
@@ -198,7 +208,7 @@ public class DotHandler {
       return new CustomString(str);
     }
 
-    public CustomString indent(int n) {
+    public CustomString indent(final int n) {
       if (n < 0)
         throw new Error("Expect positive value in indent function of class CustomString, instead having " + n);
       for (int i = 0; i < n; i++) {
