@@ -9,6 +9,7 @@ public class DotHandler {
   private static DotHandler dot_handler_instance = new DotHandler();
   private FileOutputStream output_stream_uml_dot_file;
   private int indent = 0;
+  private boolean new_line = true;
 
   public DotHandler() {
     try {
@@ -18,11 +19,11 @@ public class DotHandler {
       this.output_stream_uml_dot_file = new FileOutputStream(uml_dot_file, false);
 
       this.begin("digraph G {");
-      this.spaceLine();
+      this.newLine();
 
       this.writeln("fontname = \"Bitstream Vera Sans\"");
       this.writeln("fontsize = 8");
-      this.spaceLine();
+      this.newLine();
 
       this.begin("node [");
       this.writeln("fontname = \"Bitstream Vera Sans\"");
@@ -46,12 +47,18 @@ public class DotHandler {
   public DotHandler writeln(String str) {
     write(str);
     write("\n");
+    this.new_line = true;
     return this;
   }
 
   public DotHandler write(String str) {
     try {
-      this.output_stream_uml_dot_file.write((CustomString.makeCustomString(str).indent(indent).finish()).getBytes());
+      if (this.new_line) {
+        this.output_stream_uml_dot_file.write((CustomString.makeCustomString(str).indent(indent).finish()).getBytes());
+        this.new_line = false;
+      } else {
+        this.output_stream_uml_dot_file.write(str.getBytes());
+      }
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -67,11 +74,11 @@ public class DotHandler {
   public DotHandler end(String str) {
     this.indent--;
     this.writeln(str);
-    this.spaceLine();
+    this.newLine();
     return this;
   }
 
-  public DotHandler spaceLine() {
+  public DotHandler newLine() {
     this.writeln("");
     return this;
   }
