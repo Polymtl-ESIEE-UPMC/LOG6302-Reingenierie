@@ -29,11 +29,7 @@ public class ExampleVisitor extends AbstractVisitor {
 			}
 		}
 
-		propagate(node, DotHandler.getInstance().getNode(class_name));
-		// node.jjtGetChild(0).jjtGetChild(node.jjtGetChild(0).jjtGetNumChildren() -
-		// 1).jjtAccept(this,
-		// DotHandler.getInstance().getNode(class_name));
-
+		propagate(node, class_name);
 		return data;
 	}
 
@@ -45,9 +41,11 @@ public class ExampleVisitor extends AbstractVisitor {
 			type = getImage(((SimpleNode) node.jjtGetChild(0).jjtGetChild(0)).jjtGetFirstToken());
 		}
 		if (node.jjtGetChild(2).jjtGetChild(0) instanceof MethodDeclaratorRest) {
-			((DotNode) data).addMethod(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type);
+			DotHandler.getInstance().add().method(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type)
+					.to((String) data);
 		} else {
-			((DotNode) data).addField(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type);
+			DotHandler.getInstance().add().field(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type)
+					.to((String) data);
 		}
 		propagate(node, data);
 		return data;
