@@ -10,33 +10,33 @@ import java.util.List;
 
 public class DotHandler {
 
-  class DotNode {
+  private class DotNode {
 
-    class MethodOrField {
-      public String name;
-      public String type;
+    private class MethodOrField {
+      private String name;
+      private String type;
 
-      public MethodOrField(final String name, final String type) {
+      private MethodOrField(final String name, final String type) {
         this.name = name;
         this.type = type;
       }
     }
 
-    public String name;
-    public List<MethodOrField> field = new ArrayList<MethodOrField>();
-    public List<MethodOrField> method = new ArrayList<MethodOrField>();
-    public List<DotNode> children = new ArrayList<DotNode>();
-    public List<DotNode> parents = new ArrayList<DotNode>();
+    private String name;
+    private List<MethodOrField> field = new ArrayList<MethodOrField>();
+    private List<MethodOrField> method = new ArrayList<MethodOrField>();
+    private List<DotNode> children = new ArrayList<DotNode>();
+    private List<DotNode> parents = new ArrayList<DotNode>();
 
-    public DotNode(final String name) {
+    private DotNode(final String name) {
       this.name = name;
     }
 
-    public void addField(final String name, final String type) {
+    private void addField(final String name, final String type) {
       field.add(new MethodOrField(name, type));
     }
 
-    public void addMethod(final String name, final String type) {
+    private void addMethod(final String name, final String type) {
       method.add(new MethodOrField(name, type));
     }
 
@@ -54,30 +54,22 @@ public class DotHandler {
     }
   }
 
-  class DotTree {
-    private final HashMap<String, DotNode> dot_nodes = new HashMap<String, DotNode>();
+  private class DotTree {
+    private final HashMap<String, DotNode> dot_tree = new HashMap<String, DotNode>();
 
-    public DotNode get(String key) {
-      if (this.dot_nodes.get(key) == null)
-        this.dot_nodes.put(key, new DotNode(key));
-      return this.dot_nodes.get(key);
+    private DotNode get(String key) {
+      if (this.dot_tree.get(key) == null)
+        this.dot_tree.put(key, new DotNode(key));
+      return this.dot_tree.get(key);
     }
 
-    public void put(String key, DotNode node) {
-      this.dot_nodes.put(key, node);
-    }
-
-    public Collection<DotNode> values() {
-      return this.dot_nodes.values();
+    private Collection<DotNode> values() {
+      return this.dot_tree.values();
     }
   }
 
   private final DotTree uml_tree = new DotTree();
   private final DotTree cfg_tree = new DotTree();
-
-  enum Relation {
-    UML, CFG
-  }
 
   private static DotHandler dot_handler_instance = new DotHandler();
 
@@ -85,8 +77,8 @@ public class DotHandler {
     return dot_handler_instance;
   }
 
-  public SetRelation setRelation(Relation type) {
-    return new SetRelation(type);
+  public SetRelation setRelationUML() {
+    return new SetRelation("UML");
   }
 
   public Add add() {
@@ -105,9 +97,9 @@ public class DotHandler {
 
     private DotTree __anonymous_tree__;
 
-    public SetRelation(Relation type) {
+    private SetRelation(String type) {
       switch (type) {
-        case CFG:
+        case "CFG":
           this.__anonymous_tree__ = cfg_tree;
         default:
           this.__anonymous_tree__ = uml_tree;
@@ -122,7 +114,7 @@ public class DotHandler {
 
       private DotNode from;
 
-      public From(DotNode from) {
+      private From(DotNode from) {
         this.from = from;
       }
 
@@ -146,7 +138,7 @@ public class DotHandler {
       private String name;
       private String type;
 
-      public Field(final String name, final String type) {
+      private Field(final String name, final String type) {
         this.name = name;
         this.type = type;
       }
@@ -160,7 +152,7 @@ public class DotHandler {
       private String name;
       private String type;
 
-      public Method(final String name, final String type) {
+      private Method(final String name, final String type) {
         this.name = name;
         this.type = type;
       }
@@ -171,13 +163,13 @@ public class DotHandler {
     }
   }
 
-  class DotFile {
+  private class DotFile {
 
     private FileOutputStream output_stream_uml_dot_file;
     private int indent = 0;
     private boolean new_line = true;
 
-    public DotFile(final DotNode dot_node) {
+    private DotFile(final DotNode dot_node) {
       createDotFile(dot_node);
       writeHeader();
       writeRelation(dot_node);
@@ -276,18 +268,18 @@ public class DotHandler {
 
   }
 
-  static class StringEditor {
+  private static class StringEditor {
     private String str;
 
     private StringEditor(final String str) {
       this.str = str;
     }
 
-    public static StringEditor edit(final String str) {
+    private static StringEditor edit(final String str) {
       return new StringEditor(str);
     }
 
-    public StringEditor indent(final int n) {
+    private StringEditor indent(final int n) {
       if (n < 0)
         throw new Error("Expect positive value in indent function of class CustomString, instead having " + n);
       for (int i = 0; i < n; i++) {
@@ -296,7 +288,7 @@ public class DotHandler {
       return this;
     }
 
-    public String done() {
+    private String done() {
       return this.str;
     }
   }
