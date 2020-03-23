@@ -55,26 +55,71 @@ public class DotHandler {
     }
   }
 
+  enum Op {
+    SET_RELATION, ADD_FIELD, ADD_METHOD, UNKNOWN
+  }
+
   private final HashMap<String, DotNode> dot_nodes = new HashMap<String, DotNode>();
+  private Op op = Op.UNKNOWN;
+
   private DotNode __temp__ = null;
+  private String __temp__1 = "";
+  private String __temp__2 = "";
+
+  public void done() {
+    this.op = Op.UNKNOWN;
+    this.__temp__ = null;
+    this.__temp__1 = "";
+    this.__temp__2 = "";
+  }
 
   public static DotHandler getInstance() {
     return dot_handler_instance;
   }
 
   public DotHandler setRelation() {
+    op = Op.SET_RELATION;
     return this;
   }
 
   public DotHandler from(final String name) {
-    this.__temp__ = this.getNode(name);
+    this.__temp__ = getNode(name);
     return this;
   }
 
-  public void to(final String name) {
-    this.__temp__.parents.add(this.getNode(name));
-    this.getNode(name).children.add(this.__temp__);
-    this.__temp__ = null;
+  public DotHandler to(final String name) {
+    switch (op) {
+      case SET_RELATION:
+        this.__temp__.parents.add(this.getNode(name));
+        getNode(name).children.add(this.__temp__);
+        done();
+      case ADD_FIELD:
+        getNode(name).addField(__temp__1, __temp__2);
+        done();
+      case ADD_METHOD:
+        getNode(name).addMethod(__temp__1, __temp__2);
+        done();
+      default:
+    }
+    return this;
+  }
+
+  public DotHandler add() {
+    return this;
+  }
+
+  public DotHandler field(final String name, final String type) {
+    this.op = Op.ADD_FIELD;
+    this.__temp__1 = name;
+    this.__temp__2 = type;
+    return this;
+  }
+
+  public DotHandler method(final String name, final String type) {
+    this.op = Op.ADD_METHOD;
+    this.__temp__1 = name;
+    this.__temp__2 = type;
+    return this;
   }
 
   public DotNode getNode(final String name) {
