@@ -52,7 +52,8 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final VoidMethodDeclaratorRest node, final Object data) {
-		((DotNode) data).addMethod(getImage(((SimpleNode) node.jjtGetParent().jjtGetChild(0)).jjtGetFirstToken()), "void");
+		DotHandler.getInstance().add()
+				.method(getImage(((SimpleNode) node.jjtGetParent().jjtGetChild(0)).jjtGetFirstToken()), "void");
 		return data;
 	}
 

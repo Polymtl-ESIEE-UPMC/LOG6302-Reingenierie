@@ -104,7 +104,7 @@ public class JavaParser1_7
     } else {
       JavaParser1_7.m(args);
     }
-    DotHandler.getInstance().finish();
+    DotHandler.getInstance().done();
     System.out.println("Parsed " + cnt + " files in: " + (System.currentTimeMillis() - l));
   }
 

@@ -4,10 +4,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
 public class DotHandler {
+
+  private final boolean FEATURE_UML = true;
+  private final boolean FEATURE_CFG = false;
 
   private static DotHandler dot_handler_instance = new DotHandler();
 
@@ -55,83 +59,101 @@ public class DotHandler {
     }
   }
 
-  enum Op {
-    SET_RELATION, ADD_FIELD, ADD_METHOD, UNKNOWN
+  class DotNodes {
+    private final HashMap<String, DotNode> dot_nodes = new HashMap<String, DotNode>();
+
+    public DotNode get(String key) {
+      if (this.dot_nodes.get(key) == null)
+        this.dot_nodes.put(key, new DotNode(key));
+      return this.dot_nodes.get(key);
+    }
+
+    public void put(String key, DotNode node) {
+      this.dot_nodes.put(key, node);
+    }
+
+    public Collection<DotNode> values() {
+      return this.dot_nodes.values();
+    }
   }
 
-  private final HashMap<String, DotNode> dot_nodes = new HashMap<String, DotNode>();
-  private Op op = Op.UNKNOWN;
-
-  private DotNode __temp__ = null;
-  private String __temp__1 = "";
-  private String __temp__2 = "";
-
-  public void done() {
-    this.op = Op.UNKNOWN;
-    this.__temp__ = null;
-    this.__temp__1 = "";
-    this.__temp__2 = "";
-  }
+  private final DotNodes dot_nodes = new DotNodes();
 
   public static DotHandler getInstance() {
     return dot_handler_instance;
   }
 
-  public DotHandler setRelation() {
-    op = Op.SET_RELATION;
-    return this;
+  public SetRelation setRelation() {
+    return new SetRelation();
   }
 
-  public DotHandler from(final String name) {
-    this.__temp__ = getNode(name);
-    return this;
+  public Add add() {
+    return new Add();
   }
 
-  public DotHandler to(final String name) {
-    switch (op) {
-      case SET_RELATION:
-        this.__temp__.parents.add(this.getNode(name));
-        getNode(name).children.add(this.__temp__);
-        done();
-      case ADD_FIELD:
-        getNode(name).addField(__temp__1, __temp__2);
-        done();
-      case ADD_METHOD:
-        getNode(name).addMethod(__temp__1, __temp__2);
-        done();
-      default:
-    }
-    return this;
-  }
-
-  public DotHandler add() {
-    return this;
-  }
-
-  public DotHandler field(final String name, final String type) {
-    this.op = Op.ADD_FIELD;
-    this.__temp__1 = name;
-    this.__temp__2 = type;
-    return this;
-  }
-
-  public DotHandler method(final String name, final String type) {
-    this.op = Op.ADD_METHOD;
-    this.__temp__1 = name;
-    this.__temp__2 = type;
-    return this;
-  }
-
-  public DotNode getNode(final String name) {
-    if (this.dot_nodes.get(name) == null)
-      this.dot_nodes.put(name, new DotNode(name));
-    return this.dot_nodes.get(name);
-  }
-
-  public void finish() {
+  public void done() {
     for (final DotNode dot_node : this.dot_nodes.values()) {
       if (dot_node.children.size() > 0) {
         new DotFile(dot_node);
+      }
+    }
+  }
+
+  class SetRelation {
+
+    public From from(final String name) {
+      return new From(dot_nodes.get(name));
+    }
+
+    class From {
+
+      private DotNode from;
+
+      public From(DotNode from) {
+        this.from = from;
+      }
+
+      public void to(final String name) {
+        this.from.parents.add(dot_nodes.get(name));
+        dot_nodes.get(name).children.add(this.from);
+      }
+    }
+  }
+
+  class Add {
+    public Field field(final String name, final String type) {
+      return new Field(name, type);
+    }
+
+    public Method method(final String name, final String type) {
+      return new Method(name, type);
+    }
+
+    class Field {
+      private String name;
+      private String type;
+
+      public Field(final String name, final String type) {
+        this.name = name;
+        this.type = type;
+      }
+
+      public void to(final String name) {
+        dot_nodes.get(name).addField(this.name, this.type);
+      }
+    }
+
+    class Method {
+      private String name;
+      private String type;
+
+      public Method(final String name, final String type) {
+        this.name = name;
+        this.type = type;
+      }
+
+      public void to(final String name) {
+        dot_nodes.get(name).addMethod(this.name, this.type);
       }
     }
   }
@@ -225,8 +247,7 @@ public class DotHandler {
     private void write(final String str) {
       try {
         if (this.new_line) {
-          this.output_stream_uml_dot_file
-              .write((CustomString.makeCustomString(str).indent(indent).finish()).getBytes());
+          this.output_stream_uml_dot_file.write((StringEditor.edit(str).indent(indent).done()).getBytes());
           this.new_line = false;
         } else {
           this.output_stream_uml_dot_file.write(str.getBytes());
@@ -242,18 +263,18 @@ public class DotHandler {
 
   }
 
-  static class CustomString {
+  static class StringEditor {
     private String str;
 
-    private CustomString(final String str) {
+    private StringEditor(final String str) {
       this.str = str;
     }
 
-    public static CustomString makeCustomString(final String str) {
-      return new CustomString(str);
+    public static StringEditor edit(final String str) {
+      return new StringEditor(str);
     }
 
-    public CustomString indent(final int n) {
+    public StringEditor indent(final int n) {
       if (n < 0)
         throw new Error("Expect positive value in indent function of class CustomString, instead having " + n);
       for (int i = 0; i < n; i++) {
@@ -262,7 +283,7 @@ public class DotHandler {
       return this;
     }
 
-    public String finish() {
+    public String done() {
       return this.str;
     }
   }
