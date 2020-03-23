@@ -10,6 +10,9 @@ import java.util.List;
 
 public class DotHandler {
 
+  private boolean FEATURE_FLAG_UML = true;
+  private boolean FEATURE_FLAG_CFG = false;
+
   private class DotNode {
 
     private class MethodOrField {
@@ -170,15 +173,17 @@ public class DotHandler {
     private boolean new_line = true;
 
     private DotFile(final DotNode dot_node) {
-      createDotFile(dot_node);
-      writeHeader();
-      writeRelation(dot_node);
-      writeNode(dot_node);
-      end("}");
-      try {
-        this.output_stream_uml_dot_file.close();
-      } catch (final IOException e) {
-        e.printStackTrace();
+      if (FEATURE_FLAG_UML) {
+        createDotFile(dot_node);
+        writeHeader();
+        writeRelation(dot_node);
+        writeNode(dot_node);
+        end("}");
+        try {
+          this.output_stream_uml_dot_file.close();
+        } catch (final IOException e) {
+          e.printStackTrace();
+        }
       }
     }
 
