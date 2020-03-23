@@ -1,6 +1,6 @@
 package javaparser;
 
-import javaparser.DotHandler.DotNode;
+import javaparser.DotHandler.Relation;
 
 public class ExampleVisitor extends AbstractVisitor {
 	// private String filename;
@@ -24,7 +24,7 @@ public class ExampleVisitor extends AbstractVisitor {
 				for (int j = 1; j < node.jjtGetChild(0).jjtGetChild(i).jjtGetNumChildren(); j++) {
 					final String parent_name = getImage(
 							((SimpleNode) node.jjtGetChild(0).jjtGetChild(i).jjtGetChild(j).jjtGetChild(0)).jjtGetFirstToken());
-					DotHandler.getInstance().setRelation().from(class_name).to(parent_name);
+					DotHandler.getInstance().setRelation(Relation.UML).from(class_name).to(parent_name);
 				}
 			}
 		}

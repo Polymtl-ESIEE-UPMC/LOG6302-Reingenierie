@@ -10,11 +10,6 @@ import java.util.List;
 
 public class DotHandler {
 
-  private final boolean FEATURE_UML = true;
-  private final boolean FEATURE_CFG = false;
-
-  private static DotHandler dot_handler_instance = new DotHandler();
-
   class DotNode {
 
     class MethodOrField {
@@ -59,7 +54,7 @@ public class DotHandler {
     }
   }
 
-  class DotNodes {
+  class DotTree {
     private final HashMap<String, DotNode> dot_nodes = new HashMap<String, DotNode>();
 
     public DotNode get(String key) {
@@ -77,14 +72,21 @@ public class DotHandler {
     }
   }
 
-  private final DotNodes dot_nodes = new DotNodes();
+  private final DotTree uml_tree = new DotTree();
+  private final DotTree cfg_tree = new DotTree();
+
+  enum Relation {
+    UML, CFG
+  }
+
+  private static DotHandler dot_handler_instance = new DotHandler();
 
   public static DotHandler getInstance() {
     return dot_handler_instance;
   }
 
-  public SetRelation setRelation() {
-    return new SetRelation();
+  public SetRelation setRelation(Relation type) {
+    return new SetRelation(type);
   }
 
   public Add add() {
@@ -92,7 +94,7 @@ public class DotHandler {
   }
 
   public void done() {
-    for (final DotNode dot_node : this.dot_nodes.values()) {
+    for (final DotNode dot_node : this.uml_tree.values()) {
       if (dot_node.children.size() > 0) {
         new DotFile(dot_node);
       }
@@ -101,8 +103,19 @@ public class DotHandler {
 
   class SetRelation {
 
+    private DotTree __anonymous_tree__;
+
+    public SetRelation(Relation type) {
+      switch (type) {
+        case CFG:
+          this.__anonymous_tree__ = cfg_tree;
+        default:
+          this.__anonymous_tree__ = uml_tree;
+      }
+    }
+
     public From from(final String name) {
-      return new From(dot_nodes.get(name));
+      return new From(this.__anonymous_tree__.get(name));
     }
 
     class From {
@@ -114,8 +127,8 @@ public class DotHandler {
       }
 
       public void to(final String name) {
-        this.from.parents.add(dot_nodes.get(name));
-        dot_nodes.get(name).children.add(this.from);
+        this.from.parents.add(__anonymous_tree__.get(name));
+        __anonymous_tree__.get(name).children.add(this.from);
       }
     }
   }
@@ -139,7 +152,7 @@ public class DotHandler {
       }
 
       public void to(final String name) {
-        dot_nodes.get(name).addField(this.name, this.type);
+        uml_tree.get(name).addField(this.name, this.type);
       }
     }
 
@@ -153,7 +166,7 @@ public class DotHandler {
       }
 
       public void to(final String name) {
-        dot_nodes.get(name).addMethod(this.name, this.type);
+        uml_tree.get(name).addMethod(this.name, this.type);
       }
     }
   }
