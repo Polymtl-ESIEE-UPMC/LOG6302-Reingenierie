@@ -32,6 +32,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final MethodOrFieldDecl node, final Object data) {
+		/* UML */
 		String type;
 		if (node.jjtGetChild(0) instanceof BasicType) {
 			type = getImage(((SimpleNode) node.jjtGetChild(0)).jjtGetFirstToken());
@@ -45,13 +46,19 @@ public class ExampleVisitor extends AbstractVisitor {
 			DotHandler.getInstance().add().field(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type)
 					.to((String) data);
 		}
+
+		/* CFG */
+
 		propagate(node, data);
 		return data;
 	}
 
 	public Object visit(final VoidMethodDeclaratorRest node, final Object data) {
+		/* UML */
 		DotHandler.getInstance().add()
 				.method(getImage(((SimpleNode) node.jjtGetParent().jjtGetChild(0)).jjtGetFirstToken()), "void");
+		/* CFG */
+
 		return data;
 	}
 

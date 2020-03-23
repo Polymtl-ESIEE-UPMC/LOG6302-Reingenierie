@@ -10,14 +10,14 @@ import java.util.List;
 
 public class DotHandler {
 
-  private boolean FEATURE_FLAG_UML = true;
-  private boolean FEATURE_FLAG_CFG = false;
+  private final boolean FEATURE_FLAG_UML = true;
+  private final boolean FEATURE_FLAG_CFG = false;
 
   private class DotNode {
 
     private class MethodOrField {
-      private String name;
-      private String type;
+      private final String name;
+      private final String type;
 
       private MethodOrField(final String name, final String type) {
         this.name = name;
@@ -25,11 +25,11 @@ public class DotHandler {
       }
     }
 
-    private String name;
-    private List<MethodOrField> field = new ArrayList<MethodOrField>();
-    private List<MethodOrField> method = new ArrayList<MethodOrField>();
-    private List<DotNode> children = new ArrayList<DotNode>();
-    private List<DotNode> parents = new ArrayList<DotNode>();
+    private final String name;
+    private final List<MethodOrField> field = new ArrayList<MethodOrField>();
+    private final List<MethodOrField> method = new ArrayList<MethodOrField>();
+    private final List<DotNode> children = new ArrayList<DotNode>();
+    private final List<DotNode> parents = new ArrayList<DotNode>();
 
     private DotNode(final String name) {
       this.name = name;
@@ -60,7 +60,7 @@ public class DotHandler {
   private class DotTree {
     private final HashMap<String, DotNode> dot_tree = new HashMap<String, DotNode>();
 
-    private DotNode get(String key) {
+    private DotNode get(final String key) {
       if (this.dot_tree.get(key) == null)
         this.dot_tree.put(key, new DotNode(key));
       return this.dot_tree.get(key);
@@ -100,7 +100,7 @@ public class DotHandler {
 
     private DotTree __anonymous_tree__;
 
-    private SetRelation(String type) {
+    private SetRelation(final String type) {
       switch (type) {
         case "CFG":
           this.__anonymous_tree__ = cfg_tree;
@@ -115,9 +115,9 @@ public class DotHandler {
 
     class From {
 
-      private DotNode from;
+      private final DotNode from;
 
-      private From(DotNode from) {
+      private From(final DotNode from) {
         this.from = from;
       }
 
@@ -138,8 +138,8 @@ public class DotHandler {
     }
 
     class Field {
-      private String name;
-      private String type;
+      private final String name;
+      private final String type;
 
       private Field(final String name, final String type) {
         this.name = name;
@@ -152,8 +152,8 @@ public class DotHandler {
     }
 
     class Method {
-      private String name;
-      private String type;
+      private final String name;
+      private final String type;
 
       private Method(final String name, final String type) {
         this.name = name;
