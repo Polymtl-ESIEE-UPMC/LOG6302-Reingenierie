@@ -26,13 +26,30 @@ public class DotHandler {
     }
 
     private final String name;
+    private boolean entry = false;
+    private boolean exit = false;
     private final List<MethodOrField> field = new ArrayList<MethodOrField>();
     private final List<MethodOrField> method = new ArrayList<MethodOrField>();
-    private final List<DotNode> children = new ArrayList<DotNode>();
-    private final List<DotNode> parents = new ArrayList<DotNode>();
+    private List<DotNode> from = new ArrayList<DotNode>();
+    private List<DotNode> to = new ArrayList<DotNode>();
 
     private DotNode(final String name) {
       this.name = name;
+      this.entry = false;
+    }
+
+    private DotNode(final boolean entry, final String name) {
+      this.name = name;
+      this.entry = entry;
+      if (entry)
+        from = null;
+    }
+
+    private DotNode(final String name, final boolean exit) {
+      this.name = name;
+      this.exit = exit;
+      if (exit)
+        to = null;
     }
 
     private void addField(final String name, final String type) {
@@ -66,9 +83,18 @@ public class DotHandler {
       return this.dot_tree.get(key);
     }
 
+    private void put(final boolean entry, final String key) {
+      this.dot_tree.put(key, new DotNode(entry, key));
+    }
+
+    private void put(final String key, final boolean exit) {
+      this.dot_tree.put(key, new DotNode(key, exit));
+    }
+
     private Collection<DotNode> values() {
       return this.dot_tree.values();
     }
+
   }
 
   private final DotTree uml_tree = new DotTree();
@@ -90,7 +116,7 @@ public class DotHandler {
 
   public void done() {
     for (final DotNode dot_node : this.uml_tree.values()) {
-      if (dot_node.children.size() > 0) {
+      if (dot_node.from.size() > 0) {
         new DotFile(dot_node);
       }
     }
@@ -113,6 +139,10 @@ public class DotHandler {
       return new From(this.__anonymous_tree__.get(name));
     }
 
+    public From from() {
+      return new FromEntry();
+    }
+
     class From {
 
       private final DotNode from;
@@ -122,10 +152,33 @@ public class DotHandler {
       }
 
       public void to(final String name) {
-        this.from.parents.add(__anonymous_tree__.get(name));
-        __anonymous_tree__.get(name).children.add(this.from);
+        this.from.to.add(__anonymous_tree__.get(name));
+        __anonymous_tree__.get(name).from.add(this.from);
+      }
+
+      public To to() {
+        return new To();
+      }
+
+      class To {
+        public void exit(final String name) {
+          __anonymous_tree__.put(name, true);
+          to(name);
+        }
       }
     }
+
+    class FromEntry extends From {
+      private FromEntry() {
+        super(null);
+      }
+
+      public From entry(final String name) {
+        __anonymous_tree__.put(true, name);
+        return new From(__anonymous_tree__.get(name));
+      }
+    }
+
   }
 
   class Add {
@@ -219,15 +272,15 @@ public class DotHandler {
     }
 
     private void writeRelation(final DotNode dot_node) {
-      for (int i = 0; i < dot_node.children.size(); i++) {
-        writeln(dot_node.children.get(i).name + " -> " + dot_node.name);
+      for (int i = 0; i < dot_node.from.size(); i++) {
+        writeln(dot_node.from.get(i).name + " -> " + dot_node.name);
         newLine();
-        writeNode(dot_node.children.get(i));
+        writeNode(dot_node.from.get(i));
       }
-      for (int i = 0; i < dot_node.parents.size(); i++) {
-        writeln(dot_node.name + " -> " + dot_node.parents.get(i).name);
+      for (int i = 0; i < dot_node.to.size(); i++) {
+        writeln(dot_node.name + " -> " + dot_node.to.get(i).name);
         newLine();
-        writeNode(dot_node.parents.get(i));
+        writeNode(dot_node.to.get(i));
       }
     }
 
