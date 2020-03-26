@@ -1,7 +1,7 @@
 package javaparser;
 
 public class ExampleVisitor extends AbstractVisitor {
-	private String file_name;
+	private final String file_name;
 
 	public ExampleVisitor(final String file_name) {
 		this.file_name = file_name;
@@ -41,7 +41,7 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
-	public Object visit(EnumDeclaration node, Object __raw__) {
+	public Object visit(final EnumDeclaration node, final Object __raw__) {
 		if (matchTypePath(__raw__, TypeData.ClassType)) {
 			Zeus.getSingleton().connectDatabase().type = "enum";
 			propagate(node, new Data(TypeData.ClassMetadata, null));
@@ -57,11 +57,9 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final MemberDecl node, final Object __raw__) {
-
 		if (matchTypePath(__raw__, TypeData.ClassBody)) {
 			propagate(node, new Data(TypeData.ClassBody.Member, null));
 		}
-
 		return __raw__;
 	}
 
@@ -167,47 +165,51 @@ public class ExampleVisitor extends AbstractVisitor {
 	private final TypeData TypeData = new TypeData();
 
 	private class TypePath {
-		public final String path;
 
-		private TypePath(String path) {
+		protected final String path;
+
+		private TypePath(final String path) {
 			this.path = path;
 		}
 
-		private TypePath(String current_path, String path) {
+		private TypePath(final String current_path, final String path) {
 			this.path = current_path + path;
 		}
 	}
 
 	private class TypeData {
 
-		private TypePath ClassType = new TypePath("ClassType");
+		private final TypePath ClassType = new TypePath("ClassType");
 
-		private ClassMetadata ClassMetadata = new ClassMetadata();
+		private final ClassMetadata ClassMetadata = new ClassMetadata();
 
 		private class ClassMetadata extends TypePath {
+
 			private ClassMetadata() {
 				super("ClassMetadata");
 			}
 
-			private TypePath Extends = new TypePath(this.path, "Extends");
-			private TypePath Implements = new TypePath(this.path, "Implements");
+			private final TypePath Extends = new TypePath(this.path, "Extends");
+			private final TypePath Implements = new TypePath(this.path, "Implements");
 		}
 
-		private ClassBody ClassBody = new ClassBody();
+		private final ClassBody ClassBody = new ClassBody();
 
 		private class ClassBody extends TypePath {
+
 			private ClassBody() {
 				super("ClassBody");
 			}
 
-			private Member Member = new Member(this.path);
+			private final Member Member = new Member(this.path);
 
 			private class Member extends TypePath {
-				private Member(String current_path) {
+
+				private Member(final String current_path) {
 					super(current_path, "Member");
 				}
 
-				private TypePath Type = new TypePath(this.path, "Type");
+				private final TypePath Type = new TypePath(this.path, "Type");
 			}
 		}
 
@@ -215,8 +217,8 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	private class Data {
 
-		private TypePath type;
-		private Object data;
+		private final TypePath type;
+		private final Object data;
 
 		private Data(final TypePath type, final Object data) {
 			this.type = type;
@@ -225,7 +227,7 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	}
 
-	private boolean matchTypePath(final Object o, TypePath type) {
+	private boolean matchTypePath(final Object o, final TypePath type) {
 		if (o != null && ((Data) o).type != null && ((Data) o).type.path.equals(type.path))
 			return true;
 		return false;

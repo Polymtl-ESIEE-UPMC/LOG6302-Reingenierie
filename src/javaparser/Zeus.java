@@ -16,23 +16,25 @@ public class Zeus {
   class ClassData {
 
     class FieldData {
+
       public String type;
       public String name;
 
       private FieldData() {
       }
 
-      private FieldData(String type, String name) {
+      private FieldData(final String type, final String name) {
         this.type = type;
         this.name = name;
       }
     }
 
-    class MethodData {
-      public String return_type;
-      public String name;
+    private class MethodData {
 
-      private MethodData(String return_type, String name) {
+      private final String return_type;
+      private final String name;
+
+      private MethodData(final String return_type, final String name) {
         this.return_type = return_type;
         this.name = name;
       }
@@ -42,9 +44,9 @@ public class Zeus {
     public String name;
     public String extnds;
     public List<String> implments = new ArrayList<String>();
-    public List<FieldData> fields = new ArrayList<FieldData>();
-    public List<MethodData> methods = new ArrayList<MethodData>();
     public FieldData inh = new FieldData();
+    protected List<FieldData> fields = new ArrayList<FieldData>();
+    protected List<MethodData> methods = new ArrayList<MethodData>();
 
     public void addField() {
       fields.add(new FieldData(this.inh.type, this.inh.name));
@@ -59,12 +61,13 @@ public class Zeus {
   }
 
   private class DotNodeUML extends ClassData implements DotNode {
+
     private boolean is_place_holder = false;
     private List<DotNodeUML> from = new ArrayList<DotNodeUML>();
-    private List<DotNodeUML> to = new ArrayList<DotNodeUML>();
-    private List<String> to_label = new ArrayList<String>();
+    private final List<DotNodeUML> to = new ArrayList<DotNodeUML>();
+    private final List<String> to_label = new ArrayList<String>();
 
-    private DotNodeUML(ClassData class_data) {
+    private DotNodeUML(final ClassData class_data) {
       this.type = class_data.type;
       this.name = class_data.name;
       this.fields = class_data.fields;
@@ -74,7 +77,7 @@ public class Zeus {
         this.to_label.add(class_data.extnds);
     }
 
-    private DotNodeUML(String name) {
+    private DotNodeUML(final String name) {
       this.name = name;
       this.is_place_holder = true;
     }
@@ -96,17 +99,17 @@ public class Zeus {
   private class DotNodeCFG implements DotNode {
     private String type;
     private String name;
-    private boolean entry = false;
-    private boolean exit = false;
+    private final boolean entry = false;
+    private final boolean exit = false;
     // private final List<FieldData> fields = new ArrayList<FieldData>();
     // private final List<MethodData> methods = new ArrayList<MethodData>();
-    private List<DotNodeCFG> from = new ArrayList<DotNodeCFG>();
-    private List<DotNodeCFG> to = new ArrayList<DotNodeCFG>();
+    private final List<DotNodeCFG> from = new ArrayList<DotNodeCFG>();
+    private final List<DotNodeCFG> to = new ArrayList<DotNodeCFG>();
   }
 
   private class DataBase {
-    private HashMap<ClassDeclaration, ClassData> class_database = new HashMap<ClassDeclaration, ClassData>();
-    private LinkedList<SimpleNode> sessions = new LinkedList<SimpleNode>();
+    private final HashMap<ClassDeclaration, ClassData> class_database = new HashMap<ClassDeclaration, ClassData>();
+    private final LinkedList<SimpleNode> sessions = new LinkedList<SimpleNode>();
   }
 
   private final DataBase database = new DataBase();
@@ -118,7 +121,7 @@ public class Zeus {
     return zeus;
   }
 
-  public ClassData connectDatabase(ClassDeclaration node) {
+  public ClassData connectDatabase(final ClassDeclaration node) {
     if (database.class_database.get(node) == null)
       database.class_database.put(node, new ClassData());
     database.sessions.addFirst(node);
@@ -128,8 +131,8 @@ public class Zeus {
   public ClassData connectDatabase() {
     if (database.sessions.getFirst() instanceof ClassDeclaration) {
       return connectDatabase((ClassDeclaration) database.sessions.pollFirst());
-    } else
-      return null;
+    }
+    return null;
   }
 
   public void disconnectDatabase() {
@@ -138,13 +141,16 @@ public class Zeus {
   }
 
   private void updateUML() {
-    DotNodeUML node = new DotNodeUML(connectDatabase());
-    DotNodeUML place_holder = dot_nodes_uml.put(node.name, node);
+    final DotNodeUML node = new DotNodeUML(connectDatabase());
+    final DotNodeUML place_holder = dot_nodes_uml.put(node.name, node);
     if (place_holder != null)
       node.from = place_holder.from;
+
     for (int i = 0; i < node.to_label.size(); i++) {
+
       if (dot_nodes_uml.get(node.to_label.get(i)) == null)
         dot_nodes_uml.put(node.to_label.get(i), new DotNodeUML(node.to_label.get(i)));
+
       node.to.add(dot_nodes_uml.get(node.to_label.get(i)));
       dot_nodes_uml.get(node.to_label.get(i)).from.add(node);
     }
