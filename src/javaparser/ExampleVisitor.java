@@ -1,74 +1,234 @@
 package javaparser;
 
 public class ExampleVisitor extends AbstractVisitor {
-	// private String filename;
-	public DotHandler dot_handler_instance = DotHandler.getInstance();
+	private String file_name;
 
-	public ExampleVisitor(final String filename) {
-		// this.filename = filename;
+	public ExampleVisitor(final String file_name) {
+		this.file_name = file_name;
 	}
 
-	public Object visit(final CompilationUnit node, final Object data) {
-		propagate(node, data);
-		return data;
+	public Object visit(final CompilationUnit node, final Object __raw__) {
+		propagate(node, __raw__);
+		return __raw__;
 	}
 
-	public Object visit(final ClassDeclaration node, final Object data) {
-		final String class_name = getImage(((SimpleNode) node.jjtGetChild(0).jjtGetChild(0)).jjtGetFirstToken());
+	public Object visit(final ClassDeclaration node, final Object __raw__) {
+		Zeus.getSingleton().connectDatabase(node);
+		propagate(node, new Data(TypeData.ClassType, null));
+		Zeus.getSingleton().disconnectDatabase();
+		return __raw__;
+	}
 
-		for (int i = 1; i < node.jjtGetChild(0).jjtGetNumChildren() - 1; i++) {
-			if (node.jjtGetChild(0).jjtGetChild(i) instanceof Type
-					|| node.jjtGetChild(0).jjtGetChild(i) instanceof TypeList) {
-				for (int j = 1; j < node.jjtGetChild(0).jjtGetChild(i).jjtGetNumChildren(); j++) {
-					final String parent_name = getImage(
-							((SimpleNode) node.jjtGetChild(0).jjtGetChild(i).jjtGetChild(j).jjtGetChild(0)).jjtGetFirstToken());
-					DotHandler.getInstance().setRelationUML().from(class_name).to(parent_name);
+	public Object visit(final NormalClassDeclaration node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassType)) {
+			Zeus.getSingleton().connectDatabase().type = "class";
+			propagate(node, new Data(TypeData.ClassMetadata, null));
+		}
+		return __raw__;
+	}
+
+	public Object visit(final TypeParameters node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassMetadata)) {
+			propagate(node, new Data(new TypePath("TypeParameters"), null));
+		}
+		return __raw__;
+	}
+
+	public Object visit(final ClassBody node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassMetadata)) {
+			propagate(node, new Data(TypeData.ClassBody, null));
+		}
+		return __raw__;
+	}
+
+	public Object visit(EnumDeclaration node, Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassType)) {
+			Zeus.getSingleton().connectDatabase().type = "enum";
+			propagate(node, new Data(TypeData.ClassMetadata, null));
+		}
+		return __raw__;
+	}
+
+	public Object visit(final EnumBody node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassMetadata)) {
+			propagate(node, new Data(TypeData.ClassBody, null));
+		}
+		return __raw__;
+	}
+
+	public Object visit(final MemberDecl node, final Object __raw__) {
+
+		if (matchTypePath(__raw__, TypeData.ClassBody)) {
+			propagate(node, new Data(TypeData.ClassBody.Member, null));
+		}
+
+		return __raw__;
+	}
+
+	public Object visit(final FieldDeclaratorsRest node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member)) {
+			Zeus.getSingleton().connectDatabase().addField();
+		}
+		return __raw__;
+	}
+
+	public Object visit(final MethodDeclaratorRest node, final Object __raw__) {
+		methodHandler(node, __raw__);
+		return __raw__;
+	}
+
+	public Object visit(final VoidMethodDecl node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member)) {
+			Zeus.getSingleton().connectDatabase().inh.type = "void";
+			propagate(node, __raw__);
+		}
+		return __raw__;
+	}
+
+	public Object visit(final VoidMethodDeclaratorRest node, final Object __raw__) {
+		methodHandler(node, __raw__);
+		return __raw__;
+	}
+
+	private void methodHandler(final SimpleNode node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member)) {
+			Zeus.getSingleton().connectDatabase().addMethod();
+		}
+	}
+
+	public Object visit(final Type node, final Object __raw__) {
+
+		if (matchTypePath(__raw__, TypeData.ClassMetadata)) {
+			propagate(node, new Data(TypeData.ClassMetadata.Extends, null));
+		}
+
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member)) {
+			propagate(node, new Data(TypeData.ClassBody.Member.Type, null));
+		}
+
+		return __raw__;
+	}
+
+	public Object visit(final ReferenceType node, final Object __raw__) {
+		node.jjtGetChild(0).jjtAccept(this, __raw__);
+		return __raw__;
+	}
+
+	public Object visit(final TypeList node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassMetadata)) {
+			propagate(node, new Data(TypeData.ClassMetadata.Implements, null));
+		}
+		return __raw__;
+	}
+
+	public Object visit(final BasicType node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member.Type)) {
+			Zeus.getSingleton().connectDatabase().inh.type = node.jjtGetFirstToken().image;
+		}
+		return __raw__;
+	}
+
+	public Object visit(final Identifier node, final Object __raw__) {
+
+		final java.util.function.Function<Token, String> getImage = (token) -> {
+			if (token.image.equals("Node"))
+				return "AnotherNodeBecauseDotFileHasNodeTokenInSyntax";
+			else if (token.image.equals("Inner$Class"))
+				return "InnerClass";
+			else
+				return token.image;
+		};
+
+		final String identifier_name = getImage.apply(node.jjtGetFirstToken());
+
+		if (matchTypePath(__raw__, TypeData.ClassMetadata)) {
+			Zeus.getSingleton().connectDatabase().name = identifier_name;
+		}
+
+		if (matchTypePath(__raw__, TypeData.ClassMetadata.Extends)) {
+			Zeus.getSingleton().connectDatabase().extnds = identifier_name;
+		}
+
+		if (matchTypePath(__raw__, TypeData.ClassMetadata.Implements)) {
+			Zeus.getSingleton().connectDatabase().implments.add(identifier_name);
+		}
+
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member)) {
+			Zeus.getSingleton().connectDatabase().inh.name = identifier_name;
+		}
+
+		if (matchTypePath(__raw__, TypeData.ClassBody.Member.Type)) {
+			Zeus.getSingleton().connectDatabase().inh.type = identifier_name;
+		}
+
+		return __raw__;
+	}
+
+	private final TypeData TypeData = new TypeData();
+
+	private class TypePath {
+		public final String path;
+
+		private TypePath(String path) {
+			this.path = path;
+		}
+
+		private TypePath(String current_path, String path) {
+			this.path = current_path + path;
+		}
+	}
+
+	private class TypeData {
+
+		private TypePath ClassType = new TypePath("ClassType");
+
+		private ClassMetadata ClassMetadata = new ClassMetadata();
+
+		private class ClassMetadata extends TypePath {
+			private ClassMetadata() {
+				super("ClassMetadata");
+			}
+
+			private TypePath Extends = new TypePath(this.path, "Extends");
+			private TypePath Implements = new TypePath(this.path, "Implements");
+		}
+
+		private ClassBody ClassBody = new ClassBody();
+
+		private class ClassBody extends TypePath {
+			private ClassBody() {
+				super("ClassBody");
+			}
+
+			private Member Member = new Member(this.path);
+
+			private class Member extends TypePath {
+				private Member(String current_path) {
+					super(current_path, "Member");
 				}
+
+				private TypePath Type = new TypePath(this.path, "Type");
 			}
 		}
 
-		propagate(node, class_name);
-		return data;
 	}
 
-	public Object visit(final MethodOrFieldDecl node, final Object data) {
-		/* UML */
-		String type;
-		if (node.jjtGetChild(0) instanceof BasicType) {
-			type = getImage(((SimpleNode) node.jjtGetChild(0)).jjtGetFirstToken());
-		} else {
-			type = getImage(((SimpleNode) node.jjtGetChild(0).jjtGetChild(0)).jjtGetFirstToken());
-		}
-		if (node.jjtGetChild(2).jjtGetChild(0) instanceof MethodDeclaratorRest) {
-			DotHandler.getInstance().add().method(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type)
-					.to((String) data);
-		} else {
-			DotHandler.getInstance().add().field(getImage(((SimpleNode) node.jjtGetChild(1)).jjtGetFirstToken()), type)
-					.to((String) data);
+	private class Data {
+
+		private TypePath type;
+		private Object data;
+
+		private Data(final TypePath type, final Object data) {
+			this.type = type;
+			this.data = data;
 		}
 
-		/* CFG */
-
-		propagate(node, data);
-		return data;
 	}
 
-	public Object visit(final VoidMethodDeclaratorRest node, final Object data) {
-		/* UML */
-		DotHandler.getInstance().add()
-				.method(getImage(((SimpleNode) node.jjtGetParent().jjtGetChild(0)).jjtGetFirstToken()), "void");
-		/* CFG */
-
-		return data;
-	}
-
-	private String getImage(final Token token) {
-		if (token.image.equals("Node"))
-			return "AnotherNodeBecauseDotFileHasNodeTokenInSyntax";
-		else if (token.image.equals("Inner$Class"))
-			return "InnerClass";
-		else
-			return token.image;
+	private boolean matchTypePath(final Object o, TypePath type) {
+		if (o != null && ((Data) o).type != null && ((Data) o).type.path.equals(type.path))
+			return true;
+		return false;
 	}
 
 }

@@ -2,7 +2,6 @@
 package javaparser;
 
 import java.io.*;
-import java.util.*;
 
 public class JavaParser1_7
     /* @bgen(jjtree) */ implements JavaParser1_7TreeConstants, JavaParser1_7Constants {/* @bgen(jjtree) */
@@ -104,7 +103,7 @@ public class JavaParser1_7
     } else {
       JavaParser1_7.m(args);
     }
-    DotHandler.getInstance().done();
+    Zeus.getSingleton().done();
     System.out.println("Parsed " + cnt + " files in: " + (System.currentTimeMillis() - l));
   }
 
