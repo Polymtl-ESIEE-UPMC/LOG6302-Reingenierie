@@ -1,3 +1,7 @@
+
+.PHONY: default
+default: compile start ;
+
 JJTREE=jjtree
 JAVACC=javacc
 JJDOC=jjdoc
@@ -5,9 +9,7 @@ JAVAC=javac
 GRAMMAR=java1_7
 OUTPUT=bin/javaparser
 
-.PHONY: compile clean mrproper
-
-compile:
+build:
 	mkdir -p $(OUTPUT)
 	$(JJTREE) $(GRAMMAR).jjt
 	$(JAVACC) $(GRAMMAR).jj
@@ -21,12 +23,16 @@ compile:
 clean:
 	rm -rf bin
 
+mrproper: clean
+	rm -rf *~ $(GRAMMAR).html
+
+compile: clean
+	mkdir bin
+	$(JAVAC) -d bin src/javaparser/*.java
+
 clear:
 	rm -rf results
 	rm -rf uml
-
-mrproper: clean
-	rm -rf *~ $(GRAMMAR).html
 
 run: clear
 	java -cp bin javaparser.JavaParser1_7 @log
