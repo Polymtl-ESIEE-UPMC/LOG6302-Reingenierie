@@ -12,7 +12,7 @@ public class Zeus {
   private final boolean FEATURE_FLAG_UML = false;
   private final boolean FEATURE_FLAG_CFG = true;
 
-  private int __id__ = 0;
+  private int __id__ = -1;
 
   private int genID() {
     __id__++;
@@ -45,7 +45,7 @@ public class Zeus {
         private ArrayList<Flow> next = new ArrayList<Flow>();
 
         private Flow(String name) {
-          this.type = "function";
+          this.type = "method";
           this.name = name;
           id = genID();
         }
@@ -59,17 +59,20 @@ public class Zeus {
 
       private final String return_type;
       private final String name;
+      private final int id;
       private ArrayList<FieldData> entries = new ArrayList<FieldData>();
       public String inh;
 
       private ArrayList<Flow> flows = new ArrayList<Flow>();
       private Flow current_cursor;
-      private Flow saved_cursor;
+      private LinkedList<Flow> saved_cursor = new LinkedList<Flow>();
+      private LinkedList<Flow> loop_begin = new LinkedList<Flow>();
       private LinkedList<Flow> current_exit = new LinkedList<Flow>();
 
       private MethodData(final String return_type, final String name) {
         this.return_type = return_type;
         this.name = name;
+        this.id = genID();
         this.flows.add(new Flow("entry"));
         this.current_cursor = this.flows.get(this.flows.size() - 1);
         this.current_exit.addFirst(new Flow("exit"));
@@ -80,18 +83,41 @@ public class Zeus {
       }
 
       public void saveCursor() {
-        this.saved_cursor = this.current_cursor;
+        this.saved_cursor.addFirst(this.current_cursor);
       }
 
       public void loadCursor() {
-        this.current_cursor = this.saved_cursor;
+        this.current_cursor = this.saved_cursor.pollFirst();
       }
 
       public void begin(String type) {
+        String erasure_type;
+
+        switch (type) {
+          case "while":
+            erasure_type = "loop";
+            break;
+          case "do":
+            erasure_type = "loop";
+            break;
+          case "for":
+            erasure_type = "loop";
+            break;
+          default:
+            erasure_type = type;
+            break;
+        }
+
         addFlow(type, type + "Begin");
-        Flow new_internal_exit = new Flow(type, type + "End");
+        if (erasure_type.equals("loop"))
+          this.loop_begin.addFirst(this.current_cursor);
+        Flow new_internal_exit = new Flow(erasure_type, type + "End");
         this.current_exit.addFirst(new_internal_exit);
         this.flows.add(new_internal_exit);
+      }
+
+      public void loop() {
+        this.current_cursor.next.add(this.loop_begin.pollFirst());
       }
 
       public void exit() {
@@ -264,8 +290,21 @@ public class Zeus {
     private void saveAsUML(HashMap<String, DotNodeUML> dot_tree_uml) {
       for (final DotNodeUML dot_node : dot_tree_uml.values()) {
         if (!(dot_node).is_place_holder) {
-          saveNode(dot_node, (dn) -> {
-            writeNode((DotNodeUML) dn);
+          saveNode(dot_node, () -> {
+            for (int i = 0; i < dot_node.from.size(); i++) {
+              writeln(dot_node.from.get(i).name + " -> " + dot_node.name);
+              newLine();
+              writeLabel(dot_node.from.get(i).name, dot_node.from.get(i).toString());
+            }
+            for (int i = 0; i < dot_node.to.size(); i++) {
+              if (!dot_node.to.get(i).is_place_holder) {
+                writeln(dot_node.name + " -> " + dot_node.to.get(i).name);
+                newLine();
+                writeLabel(dot_node.to.get(i).name, dot_node.to.get(i).toString());
+              }
+            }
+            writeLabel(dot_node.name, dot_node.toString());
+            return null;
           });
         }
       }
@@ -273,19 +312,36 @@ public class Zeus {
 
     private void saveAsCFG(HashMap<String, DotNodeCFG> dot_tree_cfg) {
       for (final DotNodeCFG dot_node : dot_tree_cfg.values()) {
-        saveNode(dot_node, (dn) -> {
-          writeNode((DotNodeCFG) dn);
+        saveNode(dot_node, () -> {
+          for (int i = 0; i < dot_node.methods.size(); i++) {
+            writeln(dot_node.methods.get(i).id + " -> " + dot_node.methods.get(i).flows.get(0).id);
+            writeLabel("" + dot_node.methods.get(i).id, dot_node.methods.get(i).toString());
+            writeLabel("" + dot_node.methods.get(i).flows.get(0).id, dot_node.methods.get(i).flows.get(0).name);
+            for (int j = 0; j < dot_node.methods.get(i).flows.size(); j++) {
+              for (int k = 0; k < dot_node.methods.get(i).flows.get(j).next.size(); k++) {
+                writeln(dot_node.methods.get(i).flows.get(j).id + " -> "
+                    + dot_node.methods.get(i).flows.get(j).next.get(k).id);
+                writeLabel("" + dot_node.methods.get(i).flows.get(j).id, dot_node.methods.get(i).flows.get(j).name);
+                writeLabel("" + dot_node.methods.get(i).flows.get(j).next.get(k).id,
+                    dot_node.methods.get(i).flows.get(j).next.get(k).name);
+              }
+            }
+          }
+          return null;
         });
       }
     }
 
-    private void saveNode(ClassData dot_node, java.util.function.Consumer<ClassData> writeBody) {
+    private void writeLabel(String id, String label) {
+      begin(id + " [");
+      writeln("label = \"{" + label + "}\"");
+      end("]");
+    }
+
+    private void saveNode(ClassData dot_node, java.util.function.Supplier<Object> writeBody) {
       createDotFile(dot_node);
       writeHeader();
-      if (dot_node instanceof DotNodeUML)
-        writeBody.accept((DotNodeUML) dot_node);
-      else if (dot_node instanceof DotNodeCFG)
-        writeBody.accept((DotNodeCFG) dot_node);
+      writeBody.get();
       end("}");
       try {
         this.output_stream_uml_dot_file.close();
@@ -323,47 +379,6 @@ public class Zeus {
       begin("edge [");
       writeln("fontname = \"Bitstream Vera Sans\"");
       writeln("fontsize = 8");
-      end("]");
-    }
-
-    private void writeNode(final DotNodeUML dot_node) {
-      for (int i = 0; i < dot_node.from.size(); i++) {
-        writeln(dot_node.from.get(i).name + " -> " + dot_node.name);
-        newLine();
-        writeLabel(dot_node.from.get(i).name, dot_node.from.get(i).toString());
-      }
-      for (int i = 0; i < dot_node.to.size(); i++) {
-        if (!dot_node.to.get(i).is_place_holder) {
-          writeln(dot_node.name + " -> " + dot_node.to.get(i).name);
-          newLine();
-          writeLabel(dot_node.to.get(i).name, dot_node.to.get(i).toString());
-        }
-      }
-      writeLabel(dot_node.name, dot_node.toString());
-    }
-
-    private void writeNode(DotNodeCFG dot_node) {
-
-      for (int i = 0; i < dot_node.methods.size(); i++) {
-        writeLabel(dot_node.methods.get(i).name, dot_node.methods.get(i).toString());
-        writeln(dot_node.methods.get(i).name + " -> " + dot_node.methods.get(i).flows.get(0).id);
-        writeLabel("" + dot_node.methods.get(i).flows.get(0).id, dot_node.methods.get(i).flows.get(0).name);
-        for (int j = 0; j < dot_node.methods.get(i).flows.size(); j++) {
-          for (int k = 0; k < dot_node.methods.get(i).flows.get(j).next.size(); k++) {
-            writeln(
-                dot_node.methods.get(i).flows.get(j).id + " -> " + dot_node.methods.get(i).flows.get(j).next.get(k).id);
-            writeLabel("" + dot_node.methods.get(i).flows.get(j).id, dot_node.methods.get(i).flows.get(j).name);
-            writeLabel("" + dot_node.methods.get(i).flows.get(j).next.get(k).id,
-                dot_node.methods.get(i).flows.get(j).next.get(k).name);
-          }
-        }
-      }
-
-    }
-
-    private void writeLabel(String id, String label) {
-      begin(id + " [");
-      writeln("label = \"{" + label + "}\"");
       end("]");
     }
 

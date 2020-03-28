@@ -3,6 +3,14 @@ package javaparser;
 public class ExampleVisitor extends AbstractVisitor {
 	// private final String file_name;
 
+	private int case_id = -1;
+	private boolean default_case = false;
+
+	private int genCaseID() {
+		case_id++;
+		return case_id;
+	}
+
 	public ExampleVisitor(final String file_name) {
 		// this.file_name = file_name;
 	}
@@ -121,12 +129,156 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
-	public Object visit(final ParExpression node, final Object __raw__) {
+	public Object visit(final ElseStatement node, final Object __raw__) {
 		if (matchTypePath(__raw__, TypeData.IfStatement)) {
-			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "IfCondition");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "ifConditionFalse");
+			propagate(node, new Data(TypeData.MethodBody, null));
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+		} else {
+			propagate(node, __raw__);
+		}
+		return __raw__;
+	}
+
+	public Object visit(final NoElseStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.IfStatement)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "ifConditionFalse");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+		} else {
+			propagate(node, __raw__);
+		}
+		return __raw__;
+	}
+
+	public Object visit(final WhileStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("while");
+			propagate(node, new Data(TypeData.WhileStatement, null));
+			Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+		}
+		return __raw__;
+	}
+
+	public Object visit(final DoStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("do");
+			propagate(node, new Data(TypeData.DoStatement, null));
+			Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+		}
+		return __raw__;
+	}
+
+	public Object visit(final ForStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("for");
+			propagate(node, new Data(TypeData.ForStatement, null));
+			Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+		}
+		return __raw__;
+	}
+
+	public Object visit(final ForControl node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.ForStatement)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("for", "forControl");
 			Zeus.getSingleton().connectClassDatabase().connectMethod().saveCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("for", "forConditionTrue");
 			// propagate(node, __raw__);
 		} else {
+			propagate(node, __raw__);
+		}
+		return __raw__;
+	}
+
+	public Object visit(final SwitchStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("switch");
+			this.case_id = -1;
+			propagate(node, new Data(TypeData.SwitchStatement, null));
+			if (this.default_case) {
+				Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+				Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+				this.default_case = false;
+			}
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+		}
+		return __raw__;
+	}
+
+	public Object visit(final SwitchLabel node, final Object __raw__) {
+		if (this.case_id > -1) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("case", "caseFalse");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+		}
+		if (node.jjtGetNumChildren() > 0) {
+			System.out.println("case");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("case_" + genCaseID());
+			Zeus.getSingleton().connectClassDatabase().connectMethod().saveCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("case", "caseTrue");
+		} else {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("default");
+			this.default_case = true;
+		}
+		return __raw__;
+	}
+
+	// public Object visit(final BlockStatements node, final Object __raw__) {
+	// System.out.println("statements");
+	// propagate(node, __raw__);
+	// if (matchTypePath(__raw__, TypeData.SwitchStatement)) {
+	// System.out.println("Hereeeeeeeeeeeeeeeeeeeee");
+	// Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+	// if (!this.default_case) {
+	// Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
+	// Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("case",
+	// "caseFalse");
+	// Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+	// } else {
+	// this.default_case = false;
+	// }
+	// Zeus.getSingleton().connectClassDatabase().connectMethod().end();
+	// }
+	// return __raw__;
+	// }
+
+	public Object visit(final ParExpression node, final Object __raw__) {
+
+		if (matchTypePath(__raw__, TypeData.IfStatement)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "ifCondition");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().saveCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "ifConditionTrue");
+			// propagate(node, __raw__);
+		}
+
+		else if (matchTypePath(__raw__, TypeData.WhileStatement)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("while", "whileCondition");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().saveCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("while", "whileConditionTrue");
+			// propagate(node, __raw__);
+		}
+
+		else if (matchTypePath(__raw__, TypeData.DoStatement)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("while", "whileCondition");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().saveCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("while", "whileConditionTrue");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loop();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("while", "whileConditionFalse");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+			// propagate(node, __raw__);
+		}
+
+		else if (matchTypePath(__raw__, TypeData.SwitchStatement)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("switch", "switchExpression");
+			// propagate(node, __raw__);
+		}
+
+		else {
 			propagate(node, __raw__);
 		}
 		return __raw__;
@@ -134,22 +286,35 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public Object visit(final Statement node, final Object __raw__) {
 		if (matchTypePath(__raw__, TypeData.IfStatement)) {
-			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "IfConditionTrue");
+			propagate(node, new Data(TypeData.MethodBody, null));
 			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
-			// propagate(node, __raw__);
-		} else {
-			propagate(node, __raw__);
 		}
-		return __raw__;
-	}
 
-	public Object visit(final ElseStatement node, final Object __raw__) {
-		if (matchTypePath(__raw__, TypeData.IfStatement)) {
+		else if (matchTypePath(__raw__, TypeData.WhileStatement)) {
+			propagate(node, new Data(TypeData.MethodBody, null));
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loop();
 			Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
-			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("if", "IfConditionFalse");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("while", "whileConditionFalse");
 			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
-			// propagate(node, __raw__);
-		} else {
+		}
+
+		else if (matchTypePath(__raw__, TypeData.DoStatement)) {
+			propagate(node, new Data(TypeData.MethodBody, null));
+		}
+
+		else if (matchTypePath(__raw__, TypeData.ForStatement)) {
+			propagate(node, new Data(TypeData.MethodBody, null));
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loop();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("for", "forConditionFalse");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
+		}
+
+		else if (matchTypePath(__raw__, TypeData.SwitchStatement)) {
+			propagate(node, new Data(TypeData.MethodBody, null));
+		}
+
+		else {
 			propagate(node, __raw__);
 		}
 		return __raw__;
@@ -313,7 +478,10 @@ public class ExampleVisitor extends AbstractVisitor {
 		}
 
 		private TypePath IfStatement = new TypePath("IfStatement");
-
+		private TypePath WhileStatement = new TypePath("WhileStatement");
+		private TypePath DoStatement = new TypePath("DoStatement");
+		private TypePath ForStatement = new TypePath("ForStatement");
+		private TypePath SwitchStatement = new TypePath("SwitchStatement");
 	}
 
 	private class Data {
