@@ -38,22 +38,21 @@ public class Zeus {
     class MethodData {
 
       private class Flow {
-        private final int id;
+        private final int id = genID();
         private String type;
         private String name;
         private String target;
+        private boolean alive = true;;
         private ArrayList<Flow> next = new ArrayList<Flow>();
 
         private Flow(String name) {
           this.type = "method";
           this.name = name;
-          id = genID();
         }
 
         private Flow(String type, String name) {
           this.type = type;
           this.name = name;
-          id = genID();
         }
       }
 
@@ -117,12 +116,40 @@ public class Zeus {
       }
 
       public void loop() {
-        this.current_cursor.next.add(this.loop_begin.pollFirst());
+        linkTo(this.loop_begin.pollFirst());
+      }
+
+      public void loop(String type) {
+        if (type.equals("continue")) {
+          linkTo(this.loop_begin.getFirst());
+          this.current_cursor.alive = false;
+        }
       }
 
       public void exit() {
-        this.current_cursor.next.add(this.current_exit.getFirst());
+        linkTo(this.current_exit.getFirst());
         this.current_cursor = this.current_exit.getFirst();
+      }
+
+      public void exit(String type) {
+        switch (type) {
+          case "return":
+            linkTo(this.current_exit.getLast());
+            this.current_cursor.alive = false;
+            break;
+          case "break":
+            Flow closest_loop_exit;
+            int i = 0;
+            do {
+              closest_loop_exit = this.current_exit.get(i);
+              System.out.println("This exit is " + closest_loop_exit.type);
+              i++;
+            } while (!closest_loop_exit.type.equals("loop") && !closest_loop_exit.type.equals("switch"));
+            linkTo(closest_loop_exit);
+            this.current_cursor.alive = false;
+            break;
+          default:
+        }
       }
 
       public void end() {
@@ -132,8 +159,13 @@ public class Zeus {
       public void addFlow(String type, String name) {
         Flow next_flow = new Flow(type, name);
         this.flows.add(next_flow);
-        this.current_cursor.next.add(next_flow);
+        linkTo(next_flow);
         this.current_cursor = next_flow;
+      }
+
+      public void linkTo(Flow next_flow) {
+        if (this.current_cursor.alive)
+          this.current_cursor.next.add(next_flow);
       }
 
       public String toString() {

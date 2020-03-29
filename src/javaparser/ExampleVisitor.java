@@ -216,7 +216,6 @@ public class ExampleVisitor extends AbstractVisitor {
 			Zeus.getSingleton().connectClassDatabase().connectMethod().end();
 		}
 		if (node.jjtGetNumChildren() > 0) {
-			System.out.println("case");
 			Zeus.getSingleton().connectClassDatabase().connectMethod().begin("case_" + genCaseID());
 			Zeus.getSingleton().connectClassDatabase().connectMethod().saveCursor();
 			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("case", "caseTrue");
@@ -227,24 +226,29 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
-	// public Object visit(final BlockStatements node, final Object __raw__) {
-	// System.out.println("statements");
-	// propagate(node, __raw__);
-	// if (matchTypePath(__raw__, TypeData.SwitchStatement)) {
-	// System.out.println("Hereeeeeeeeeeeeeeeeeeeee");
-	// Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
-	// if (!this.default_case) {
-	// Zeus.getSingleton().connectClassDatabase().connectMethod().loadCursor();
-	// Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("case",
-	// "caseFalse");
-	// Zeus.getSingleton().connectClassDatabase().connectMethod().exit();
-	// } else {
-	// this.default_case = false;
-	// }
-	// Zeus.getSingleton().connectClassDatabase().connectMethod().end();
-	// }
-	// return __raw__;
-	// }
+	public Object visit(final ReturnStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("return", "return");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit("return");
+		}
+		return __raw__;
+	}
+
+	public Object visit(final BreakStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("break", "break");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().exit("break");
+		}
+		return __raw__;
+	}
+
+	public Object visit(final ContinueStatement node, final Object __raw__) {
+		if (matchTypePath(__raw__, TypeData.MethodBody)) {
+			Zeus.getSingleton().connectClassDatabase().connectMethod().addFlow("continue", "continue");
+			Zeus.getSingleton().connectClassDatabase().connectMethod().loop("continue");
+		}
+		return __raw__;
+	}
 
 	public Object visit(final ParExpression node, final Object __raw__) {
 
