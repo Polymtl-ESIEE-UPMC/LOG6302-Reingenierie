@@ -19,6 +19,7 @@ public class Zeus {
     return __id__;
   }
 
+  // Structure de donnee de la declaration des class
   class ClassData {
 
     class FieldData {
@@ -39,9 +40,9 @@ public class Zeus {
 
       private class Flow {
         private final int id = genID();
-        private String type;
+        private String type; // condition, entry, end,...etc
         private String name;
-        private String target;
+        private String target; // details pour plus tard
         private boolean alive = true;;
         private ArrayList<Flow> next = new ArrayList<Flow>();
 
@@ -54,14 +55,21 @@ public class Zeus {
       private final String return_type;
       private final String name;
       private final int id = genID();
-      private ArrayList<FieldData> entries = new ArrayList<FieldData>();
-      public String inh;
+      private ArrayList<FieldData> entries = new ArrayList<FieldData>(); // les INs de methode, pas encore vraiment
+                                                                         // utilise
+      public String inh; // inh attribute
 
-      private ArrayList<Flow> flows = new ArrayList<Flow>();
+      private ArrayList<Flow> flows = new ArrayList<Flow>(); // structure de l'arbre utilise pour l'affichage
       private Flow current_cursor = new Flow("entry", "entry");
       private LinkedList<Flow> saved_cursors = new LinkedList<Flow>();
-      private LinkedList<Flow> current_begin = new LinkedList<Flow>();
-      private LinkedList<Flow> current_end = new LinkedList<Flow>();
+      private LinkedList<Flow> current_begin = new LinkedList<Flow>(); // queue des points d'entree des structure de
+                                                                       // control
+      private LinkedList<Flow> current_end = new LinkedList<Flow>(); // queue des points de sortie des structure de
+                                                                     // sortie
+      // au debut de developpement, car on a toujours besoin d'un exit, mais pourquoi
+      // un entry ? le loop peut etre fait avec
+      // les saved_cursor. Puis pour simplifier, je decide d'avoir aussi le
+      // current_begin, c'est plus facie a comprendre
 
       private MethodData(final String return_type, final String name) {
         this.return_type = return_type;
@@ -149,6 +157,8 @@ public class Zeus {
         this.current_cursor.alive = false;
       }
 
+      // on a fini de parsing le structure de controle, on enleve les points d'entree
+      // et sortie
       public void exit() {
         this.current_begin.removeFirst();
         this.current_end.removeFirst();
@@ -197,6 +207,7 @@ public class Zeus {
     }
   }
 
+  // structure de node pour l'affichage UML
   private class DotNodeUML extends ClassData {
 
     private boolean is_place_holder = false;
@@ -232,6 +243,7 @@ public class Zeus {
     }
   }
 
+  // structure de node pour l'affichage CFG
   private class DotNodeCFG extends ClassData {
     private DotNodeCFG(final ClassData class_data) {
       super.type = class_data.type;
@@ -241,6 +253,12 @@ public class Zeus {
     }
   }
 
+  // Le queue des structures de donnee des class. Pourquoi pas de LinkedList ? Car
+  // au debut je ne voulais pas
+  // vraiment enlever la class, il faut le conserver pour l'affichage a la fin. En
+  // effet, avec une structure
+  // dedie pour l'affichage qui est synchronise, ce mechanisme n'est plus
+  // necessaire, mais il existe encore
   private class ClassDatabase {
     private final HashMap<ClassDeclaration, ClassData> __core__ = new HashMap<ClassDeclaration, ClassData>();
     private final LinkedList<SimpleNode> sessions = new LinkedList<SimpleNode>();
@@ -276,6 +294,7 @@ public class Zeus {
     return null;
   }
 
+  // quand on fini la declaration on sync sur la structure de .dot
   public void disconnectClassDatabase() {
     if (FEATURE_FLAG_UML)
       updateUML();
@@ -305,6 +324,8 @@ public class Zeus {
     dot_tree_cfg.put(node.name, node);
   }
 
+  // la fonction done qui est appele dans le parser, une fois il termine tous les
+  // parsings
   public void done() {
     if (FEATURE_FLAG_UML)
       (new DotTreeProcessor()).saveAsUML(dot_tree_uml);
