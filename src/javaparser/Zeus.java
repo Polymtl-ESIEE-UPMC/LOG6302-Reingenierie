@@ -12,7 +12,7 @@ public class Zeus {
   private final boolean FEATURE_FLAG_UML = false;
   private final boolean FEATURE_FLAG_CFG = true;
 
-  private int __id__ = -1;
+  private static int __id__ = -1;
 
   private int genID() {
     __id__++;
@@ -45,11 +45,6 @@ public class Zeus {
         private boolean alive = true;;
         private ArrayList<Flow> next = new ArrayList<Flow>();
 
-        private Flow(String name) {
-          this.type = "method";
-          this.name = name;
-        }
-
         private Flow(String type, String name) {
           this.type = type;
           this.name = name;
@@ -58,114 +53,118 @@ public class Zeus {
 
       private final String return_type;
       private final String name;
-      private final int id;
+      private final int id = genID();
       private ArrayList<FieldData> entries = new ArrayList<FieldData>();
       public String inh;
 
       private ArrayList<Flow> flows = new ArrayList<Flow>();
-      private Flow current_cursor;
-      private LinkedList<Flow> saved_cursor = new LinkedList<Flow>();
-      private LinkedList<Flow> loop_begin = new LinkedList<Flow>();
-      private LinkedList<Flow> current_exit = new LinkedList<Flow>();
+      private Flow current_cursor = new Flow("entry", "entry");
+      private LinkedList<Flow> saved_cursors = new LinkedList<Flow>();
+      private LinkedList<Flow> current_begin = new LinkedList<Flow>();
+      private LinkedList<Flow> current_end = new LinkedList<Flow>();
 
       private MethodData(final String return_type, final String name) {
         this.return_type = return_type;
         this.name = name;
-        this.id = genID();
-        this.flows.add(new Flow("entry"));
-        this.current_cursor = this.flows.get(this.flows.size() - 1);
-        this.current_exit.addFirst(new Flow("exit"));
+        this.flows.add(this.current_cursor);
+        this.current_begin.addFirst(this.current_cursor);
+        this.current_end.addFirst(new Flow("end", "end"));
       }
 
       public void addEntry(String name) {
         entries.add(new FieldData(this.inh, name));
       }
 
-      public void saveCursor() {
-        this.saved_cursor.addFirst(this.current_cursor);
+      public MethodData saveCursor() {
+        this.saved_cursors.addFirst(this.current_cursor);
+        return this;
       }
 
-      public void loadCursor() {
-        this.current_cursor = this.saved_cursor.pollFirst();
+      public MethodData loadCursor() {
+        this.current_cursor = this.saved_cursors.pollFirst();
+        return this;
       }
 
-      public void begin(String type) {
+      public MethodData enter(String type) {
         String erasure_type;
 
         switch (type) {
           case "while":
-            erasure_type = "loop";
-            break;
           case "do":
-            erasure_type = "loop";
-            break;
           case "for":
             erasure_type = "loop";
             break;
           default:
-            erasure_type = type;
+            if (type.contains("case"))
+              erasure_type = "condition";
+            else
+              erasure_type = type;
+        }
+
+        addFlow(erasure_type, type + "Begin");
+        Flow new_internal_end = new Flow(erasure_type, type + "End");
+        this.flows.add(new_internal_end);
+        this.current_begin.addFirst(this.current_cursor);
+        this.current_end.addFirst(new_internal_end);
+        return this;
+      }
+
+      public MethodData loop() {
+        for (int i = 0; i < this.current_begin.size(); i++) {
+          if (this.current_begin.get(i).type.equals("loop")) {
+            blockFlowThenLinkTo(this.current_begin.get(i));
             break;
+          }
         }
-
-        addFlow(type, type + "Begin");
-        if (erasure_type.equals("loop"))
-          this.loop_begin.addFirst(this.current_cursor);
-        Flow new_internal_exit = new Flow(erasure_type, type + "End");
-        this.current_exit.addFirst(new_internal_exit);
-        this.flows.add(new_internal_exit);
+        return this;
       }
 
-      public void loop() {
-        linkTo(this.loop_begin.pollFirst());
+      public MethodData end() {
+        jumpTo(this.current_end.getFirst());
+        return this;
       }
 
-      public void loop(String type) {
-        if (type.equals("continue")) {
-          linkTo(this.loop_begin.getFirst());
-          this.current_cursor.alive = false;
-        }
-      }
-
-      public void exit() {
-        linkTo(this.current_exit.getFirst());
-        this.current_cursor = this.current_exit.getFirst();
-      }
-
-      public void exit(String type) {
+      public MethodData end(String type) {
         switch (type) {
           case "return":
-            linkTo(this.current_exit.getLast());
-            this.current_cursor.alive = false;
+            blockFlowThenLinkTo(this.current_end.getLast());
             break;
           case "break":
-            Flow closest_loop_exit;
-            int i = 0;
-            do {
-              closest_loop_exit = this.current_exit.get(i);
-              System.out.println("This exit is " + closest_loop_exit.type);
-              i++;
-            } while (!closest_loop_exit.type.equals("loop") && !closest_loop_exit.type.equals("switch"));
-            linkTo(closest_loop_exit);
-            this.current_cursor.alive = false;
+            for (int i = 0; i < this.current_end.size(); i++) {
+              if (this.current_end.get(i).type.equals("loop") || this.current_end.get(i).type.equals("switch")) {
+                blockFlowThenLinkTo(this.current_end.get(i));
+                break;
+              }
+            }
             break;
           default:
         }
+        return this;
       }
 
-      public void end() {
-        this.current_exit.removeFirst();
+      private void blockFlowThenLinkTo(Flow flow) {
+        Flow dead_flow = this.current_cursor;
+        jumpTo(flow);
+        this.current_cursor = dead_flow;
+        this.current_cursor.alive = false;
       }
 
-      public void addFlow(String type, String name) {
+      public void exit() {
+        this.current_begin.removeFirst();
+        this.current_end.removeFirst();
+      }
+
+      public MethodData addFlow(String type, String name) {
         Flow next_flow = new Flow(type, name);
         this.flows.add(next_flow);
-        linkTo(next_flow);
-        this.current_cursor = next_flow;
+        jumpTo(next_flow);
+        return this;
       }
 
-      public void linkTo(Flow next_flow) {
+      private void jumpTo(Flow next_flow) {
         if (this.current_cursor.alive)
           this.current_cursor.next.add(next_flow);
+        this.current_cursor = next_flow;
       }
 
       public String toString() {
@@ -348,14 +347,17 @@ public class Zeus {
           for (int i = 0; i < dot_node.methods.size(); i++) {
             writeln(dot_node.methods.get(i).id + " -> " + dot_node.methods.get(i).flows.get(0).id);
             writeLabel("" + dot_node.methods.get(i).id, dot_node.methods.get(i).toString());
-            writeLabel("" + dot_node.methods.get(i).flows.get(0).id, dot_node.methods.get(i).flows.get(0).name);
+            writeLabel("" + dot_node.methods.get(i).flows.get(0).id, dot_node.methods.get(i).flows.get(0).name,
+                dot_node.methods.get(i).flows.get(0).type);
             for (int j = 0; j < dot_node.methods.get(i).flows.size(); j++) {
               for (int k = 0; k < dot_node.methods.get(i).flows.get(j).next.size(); k++) {
                 writeln(dot_node.methods.get(i).flows.get(j).id + " -> "
                     + dot_node.methods.get(i).flows.get(j).next.get(k).id);
-                writeLabel("" + dot_node.methods.get(i).flows.get(j).id, dot_node.methods.get(i).flows.get(j).name);
+                writeLabel("" + dot_node.methods.get(i).flows.get(j).id, dot_node.methods.get(i).flows.get(j).name,
+                    dot_node.methods.get(i).flows.get(j).type);
                 writeLabel("" + dot_node.methods.get(i).flows.get(j).next.get(k).id,
-                    dot_node.methods.get(i).flows.get(j).next.get(k).name);
+                    dot_node.methods.get(i).flows.get(j).next.get(k).name,
+                    dot_node.methods.get(i).flows.get(j).next.get(k).type);
               }
             }
           }
@@ -368,6 +370,46 @@ public class Zeus {
       begin(id + " [");
       writeln("label = \"{" + label + "}\"");
       end("]");
+    }
+
+    private void writeLabel(String id, String label, String type) {
+      switch (type) {
+        case "entry":
+        case "end":
+          begin(id + " [");
+          writeln("label = \"" + label + "\"");
+          writeln("shape = \"" + "doublecircle" + "\"");
+          end("]");
+          break;
+        case "condition":
+          begin(id + " [");
+          writeln("label = \"" + label + "\"");
+          writeln("shape = \"" + "diamond" + "\"");
+          end("]");
+          break;
+        case "loop":
+          begin(id + " [");
+          writeln("label = \"" + label + "\"");
+          writeln("shape = \"" + "ellipse" + "\"");
+          end("]");
+          break;
+        case "label":
+          begin(id + " [");
+          writeln("label = \"" + label + "\"");
+          writeln("shape = \"" + "none" + "\"");
+          end("]");
+          break;
+        case "switch":
+          begin(id + " [");
+          writeln("label = \"" + label + "\"");
+          writeln("shape = \"" + "tripleoctagon" + "\"");
+          end("]");
+          break;
+        default:
+          begin(id + " [");
+          writeln("label = \"{" + label + "}\"");
+          end("]");
+      }
     }
 
     private void saveNode(ClassData dot_node, java.util.function.Supplier<Object> writeBody) {
