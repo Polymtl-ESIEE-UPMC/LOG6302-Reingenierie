@@ -1,4 +1,6 @@
-package javaparser;
+package analyst;
+
+import javaparser.*;
 
 public class ExampleVisitor extends AbstractVisitor {
 	// private final String file_name;

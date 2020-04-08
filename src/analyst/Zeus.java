@@ -1,4 +1,6 @@
-package javaparser;
+package analyst;
+
+import javaparser.*;
 
 import java.io.File;
 import java.io.FileOutputStream;

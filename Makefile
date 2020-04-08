@@ -38,7 +38,7 @@ run: clear
 	java -cp bin javaparser.JavaParser1_7 @log
 
 test: clear
-	java -cp bin javaparser.JavaParser1_7 apache/Test.java
+	java -cp bin javaparser.JavaParser1_7 test/Test.java
 
 dot:
 	-find results/uml/dot -type f -name "*.dot" | xargs dot -Tpng -O
