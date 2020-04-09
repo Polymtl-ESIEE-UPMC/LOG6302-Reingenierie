@@ -45,3 +45,6 @@ dot:
 	-mkdir -p results/uml/png && mv results/uml/dot/*.png results/uml/png
 	-find results/cfg/dot -type f -name "*.dot" | xargs dot -Tpng -O
 	-mkdir -p results/cfg/png && mv results/cfg/dot/*.png results/cfg/png
+
+ast:
+	java -cp bin analyst.ASTWriter $(FROM) $(TO)
