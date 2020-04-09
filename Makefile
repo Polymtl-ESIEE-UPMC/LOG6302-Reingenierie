@@ -47,4 +47,4 @@ dot:
 	-mkdir -p results/cfg/png && mv results/cfg/dot/*.png results/cfg/png
 
 ast:
-	java -cp bin analyst.ASTWriter $(FROM) $(TO)
+	java -cp bin analyst.ASTWriter $(FROM) $(TO) $(DEPTH)

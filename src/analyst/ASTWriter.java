@@ -18,7 +18,7 @@ public class ASTWriter {
   private FileOutputStream output_stream_uml_dot_file;
   private int indent = 0;
   private boolean new_line = true;
-  private HashMap<String, HashSet<String>> relation = new HashMap<String, HashSet<String>>();
+  private HashMap<String, HashSet<String>> ast = new HashMap<String, HashSet<String>>();
 
   public static ASTWriter singleton = new ASTWriter();
 
@@ -26,11 +26,15 @@ public class ASTWriter {
   public static void main(String[] args) {
     String from = args[0];
     String to = args[1];
-    HashMap<String, HashSet<String>> all_relation = null;
+    int depth;
+    depth = Integer.parseInt(args[2]);
+
+    /* Read AST from file */
+    HashMap<String, HashSet<String>> saved_ast = null;
     try {
       FileInputStream fis = new FileInputStream("./dev-data/AST.ser");
       ObjectInputStream ois = new ObjectInputStream(fis);
-      all_relation = (HashMap<String, HashSet<String>>) ois.readObject();
+      saved_ast = (HashMap<String, HashSet<String>>) ois.readObject();
       ois.close();
       fis.close();
     } catch (IOException ioe) {
@@ -41,46 +45,85 @@ public class ASTWriter {
       c.printStackTrace();
       return;
     }
+    /* ****************************** */
 
-    ASTWriter ast_writer = new ASTWriter();
-    ast_writer.createDotFile();
-    ast_writer.writeHeader();
-
-    HashMap<String, HashSet<String>> required_relation = new HashMap<String, HashSet<String>>();
+    HashMap<String, HashSet<String>> required_ast = new HashMap<String, HashSet<String>>();
     ArrayList<String> working_list = new ArrayList<String>();
+    /* Get partial AST */
     working_list.add(from);
     while (!working_list.isEmpty()) {
       String working_node = working_list.remove(0);
-      required_relation.put(working_node, all_relation.get(working_node));
-      if (!required_relation.get(working_node).isEmpty() && !working_node.equals(to)) {
-        for (String node : required_relation.get(working_node)) {
-          if (required_relation.get(node) == null) {
+      required_ast.put(working_node, saved_ast.get(working_node));
+      if (!required_ast.get(working_node).isEmpty() && !working_node.equals(to)) {
+        for (String node : required_ast.get(working_node)) {
+          if (required_ast.get(node) == null) {
             working_list.add(node);
           }
         }
       }
     }
+    /* Remove path doesn't lead to required node */
     working_list.add(to);
     while (!working_list.isEmpty()) {
       String working_node = working_list.remove(0);
-      for (String node : required_relation.keySet()) {
-        if (required_relation.get(node).isEmpty() && !node.equals(working_node)) {
+      for (String node : required_ast.keySet()) {
+        if (required_ast.get(node).isEmpty() && !node.equals(working_node)) {
           working_list.add(node);
         } else if (!working_node.equals(to)) {
-          required_relation.get(node).remove(working_node);
+          required_ast.get(node).remove(working_node);
         }
       }
-      required_relation.remove(working_node);
+      required_ast.remove(working_node);
     }
-    for (String fr : required_relation.keySet()) {
-      for (String t : required_relation.get(fr)) {
-        ast_writer.writeln(fr + " -> " + t);
+    /* Compact AST based on depth argument */
+    HashMap<String, HashSet<String>> compact_ast = new HashMap<String, HashSet<String>>();
+    working_list.add(from);
+    for (int i = 0; i < depth; i++) {
+      ArrayList<String> last_depth_nodes = new ArrayList<String>();
+      while (!working_list.isEmpty()) {
+        String working_node = working_list.remove(0);
+        compact_ast.put(working_node, required_ast.get(working_node));
+        for (String node : compact_ast.get(working_node)) {
+          if (compact_ast.get(node) == null && !node.equals(to))
+            last_depth_nodes.add(node);
+        }
+      }
+      working_list = last_depth_nodes;
+    }
+    while (!working_list.isEmpty()) {
+      String working_node = working_list.remove(0);
+      ArrayList<String> another_working_list = new ArrayList<String>();
+      another_working_list.add(working_node);
+      HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
+      while (!another_working_list.isEmpty()) {
+        String another_working_node = another_working_list.remove(0);
+        visited.put(another_working_node, true);
+        for (String node : required_ast.get(another_working_node)) {
+          if (compact_ast.get(node) != null || node.equals(to)) {
+            if (compact_ast.get(working_node) == null)
+              compact_ast.put(working_node, new HashSet<String>());
+            compact_ast.get(working_node).add(node);
+          } else {
+            if (visited.get(node) == null)
+              another_working_list.add(node);
+          }
+        }
       }
     }
 
-    ast_writer.end("}");
+    /* Write requried AST to .dot file */
+    singleton.createDotFile();
+    singleton.writeHeader();
+
+    for (String fr : compact_ast.keySet()) {
+      for (String t : compact_ast.get(fr)) {
+        singleton.writeln(fr + " -> " + t);
+      }
+    }
+
+    singleton.end("}");
     try {
-      ast_writer.output_stream_uml_dot_file.close();
+      singleton.output_stream_uml_dot_file.close();
     } catch (final IOException e) {
       e.printStackTrace();
     }
@@ -88,12 +131,11 @@ public class ASTWriter {
   }
 
   public void register(Node node) {
-    relation.put(node.getClass().getSimpleName(), new HashSet<String>());
+    if (ast.get(node.getClass().getSimpleName()) == null) {
+      ast.put(node.getClass().getSimpleName(), new HashSet<String>());
+    }
     if (node.jjtGetParent() != null) {
-      if (relation.get(node.jjtGetParent().getClass().getSimpleName()) == null) {
-        relation.put(node.jjtGetParent().getClass().getSimpleName(), new HashSet<String>());
-      }
-      relation.get(node.jjtGetParent().getClass().getSimpleName()).add(node.getClass().getSimpleName());
+      ast.get(node.jjtGetParent().getClass().getSimpleName()).add(node.getClass().getSimpleName());
     }
   }
 
@@ -101,7 +143,7 @@ public class ASTWriter {
     try {
       FileOutputStream fos = new FileOutputStream("./dev-data/AST.ser");
       ObjectOutputStream oos = new ObjectOutputStream(fos);
-      oos.writeObject(relation);
+      oos.writeObject(ast);
       oos.close();
       fos.close();
       System.out.printf("Serialized HashMap data is saved in hashmap.ser");
