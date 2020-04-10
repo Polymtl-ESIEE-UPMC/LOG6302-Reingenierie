@@ -32,12 +32,11 @@ compile: clean
 
 clear:
 	rm -rf results
-	rm -rf uml
 
 run: clear
-	java -cp bin javaparser.JavaParser1_7 @log
+	java -cp bin javaparser.JavaParser1_7 @target
 
-test: clear
+test:
 	java -cp bin javaparser.JavaParser1_7 test/Test.java
 
 dot:
@@ -47,4 +46,4 @@ dot:
 	-mkdir -p results/cfg/png && mv results/cfg/dot/*.png results/cfg/png
 
 ast:
-	java -cp bin analyst.ASTWriter $(FROM) $(TO) $(DEPTH)
+	java -cp bin analyst.helper.ASTWriter $(FROM) $(TO) $(DEPTH)
