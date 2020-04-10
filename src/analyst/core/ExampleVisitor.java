@@ -72,7 +72,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final MethodOrFieldDecl node, final Object __raw__) {
-		return declareClassMember(node, __raw__, null);
+		return declareClassMember(node, __raw__, "");
 	}
 
 	public Object visit(final VoidMethodDecl node, final Object __raw__) {
