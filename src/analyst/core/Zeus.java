@@ -109,11 +109,11 @@ public class Zeus {
             new_end = new Flow("end", "exit");
             break;
           case "if":
-            new_begin = new Flow("condition", "ifCondition");
+            new_begin = new Flow("condition", "if " + info);
             new_end = new Flow("end", "ifEnd");
             break;
           case "while":
-            new_begin = new Flow("loop", "whileCondition");
+            new_begin = new Flow("loop", "while " + info);
             new_end = new Flow("end", "whileEnd");
             break;
           case "do":
@@ -125,7 +125,7 @@ public class Zeus {
             new_end = new Flow("end", "forEnd");
             break;
           case "switch":
-            new_begin = new Flow("condition", "switchExpression");
+            new_begin = new Flow("condition", "switch " + info);
             new_end = new Flow("end", "switchEnd");
             break;
           case "case":

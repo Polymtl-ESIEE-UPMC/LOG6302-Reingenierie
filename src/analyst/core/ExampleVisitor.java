@@ -1,16 +1,11 @@
 package analyst.core;
 
+import java.util.ArrayList;
+
 import javaparser.*;
 
 public class ExampleVisitor extends AbstractVisitor {
 	// private final String file_name;
-
-	private int case_id = -1;
-
-	private String genCaseID() {
-		case_id++;
-		return case_id + "";
-	}
 
 	public ExampleVisitor(final String file_name) {
 		// this.file_name = file_name;
@@ -239,7 +234,6 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final SwitchStatement node, final Object __raw__) {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
-			this.case_id = -1;
 			propagate(node, new Data(__raw__, Semantic.SwitchStatement, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
 		}
@@ -255,17 +249,14 @@ public class ExampleVisitor extends AbstractVisitor {
 
 		if (matchLexical(__raw__, Semantic.SwitchStatement)) {
 
-			if (node.jjtGetNumChildren() > 0) {
-				Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", genCaseID());
-			}
-
-			else {
+			if (node.jjtGetNumChildren() == 0) {
 				Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", "default");
 				((Data) __raw__).data = "default";
 			}
+
 		}
 
-		propagate(node, new Data(null, null, null));
+		propagate(node, new Data(null, Semantic.CaseStatement, null));
 		return __raw__;
 	}
 
@@ -293,27 +284,93 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
-	public Object visit(final ParExpression node, final Object __raw__) {
+	public Object visit(final Expression node, final Object __raw__) {
+		node.jjtGetChild(0).jjtAccept(this, __raw__);
+		// right expression of assign statement
+		// propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
+	public Object visit(final Expression1 node, final Object __raw__) {
+		node.jjtGetChild(0).jjtAccept(this, __raw__);
+		// right expression of question mark
+		// propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
+	public Object visit(final Expression2 node, final Object __raw__) {
+		// left expression of assign statement or just normal expression is here
+		ArrayList<String> exprssion = new ArrayList<String>();
+		propagate(node, new Data(Semantic.Expression, null, exprssion));
+		String expression = "";
+		for (String s : exprssion) {
+			expression += s;
+		}
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if", "").saveCursor().addFlow("label",
-					"True");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if", expression).saveCursor()
+					.addFlow("label", "True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.WhileStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while", "").saveCursor().addFlow("label",
-					"True");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while", expression).saveCursor()
+					.addFlow("label", "True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.DoStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "whileCondition").saveCursor()
-					.addFlow("label", "True").loop().loadCursor().addFlow("label", "False");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "while " + expression)
+					.saveCursor().addFlow("label", "True").loop().loadCursor().addFlow("label", "False");
 		}
 
 		else if (matchLexical(__raw__, Semantic.SwitchStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", "");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", expression);
 		}
 
+		else if (matchLexical(__raw__, Semantic.CaseStatement)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", expression);
+		}
+
+		return __raw__;
+	}
+
+	// public Object visit(final Expression3 node, final Object __raw__) {
+	// // TODO construct identifier variable here
+	// propagate(node, new Data(null, null, null));
+	// return __raw__;
+	// }
+
+	@SuppressWarnings("unchecked")
+	public Object visit(final InfixOp node, final Object __raw__) {
+		if (matchContext(__raw__, Semantic.Expression)) {
+			((ArrayList<String>) (((Data) __raw__).data)).add(node.jjtGetFirstToken().image);
+		}
+		propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
+	@SuppressWarnings("unchecked")
+	public Object visit(final PrefixOp node, final Object __raw__) {
+		if (matchContext(__raw__, Semantic.Expression)) {
+			((ArrayList<String>) (((Data) __raw__).data)).add(node.jjtGetFirstToken().image);
+		}
+		propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
+	@SuppressWarnings("unchecked")
+	public Object visit(final PostfixOp node, final Object __raw__) {
+		if (matchContext(__raw__, Semantic.Expression)) {
+			((ArrayList<String>) (((Data) __raw__).data)).add(node.jjtGetFirstToken().image);
+		}
+		propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
+	@SuppressWarnings("unchecked")
+	public Object visit(final Literal node, final Object __raw__) {
+		if (matchContext(__raw__, Semantic.Expression)) {
+			((ArrayList<String>) (((Data) __raw__).data)).add(((SimpleNode) node.jjtGetChild(0)).jjtGetFirstToken().image);
+		}
 		propagate(node, new Data(null, null, null));
 		return __raw__;
 	}
@@ -396,7 +453,8 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public Object visit(final ReferenceType node, final Object __raw__) {
 		node.jjtGetChild(0).jjtAccept(this, __raw__);
-		propagate(node, new Data(null, null, null));
+		// ReferenceType later part
+		// propagate(node, new Data(null, null, null));
 		return __raw__;
 	}
 
@@ -420,6 +478,7 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
+	@SuppressWarnings("unchecked")
 	public Object visit(final Identifier node, final Object __raw__) {
 
 		final java.util.function.Function<Token, String> getImage = (token) -> {
@@ -437,20 +496,24 @@ public class ExampleVisitor extends AbstractVisitor {
 			Zeus.singleton.connectClassDatabase().name = identifier_name;
 		}
 
-		if (matchLexical(__raw__, Semantic.ClassMetadata.Extends)) {
+		else if (matchLexical(__raw__, Semantic.ClassMetadata.Extends)) {
 			Zeus.singleton.connectClassDatabase().extnds = identifier_name;
 		}
 
-		if (matchLexical(__raw__, Semantic.ClassMetadata.Implements)) {
+		else if (matchLexical(__raw__, Semantic.ClassMetadata.Implements)) {
 			Zeus.singleton.connectClassDatabase().implments.add(identifier_name);
 		}
 
-		if (matchLexical(__raw__, Semantic.ClassBody.Member)) {
+		else if (matchLexical(__raw__, Semantic.ClassBody.Member)) {
 			Zeus.singleton.connectClassDatabase().declare(null, identifier_name);
 		}
 
-		if (matchLexical(__raw__, Semantic.ClassBody.Member.Type)) {
+		else if (matchLexical(__raw__, Semantic.ClassBody.Member.Type)) {
 			Zeus.singleton.connectClassDatabase().declare(identifier_name, null);
+		}
+
+		else if (matchContext(__raw__, Semantic.Expression)) {
+			((ArrayList<String>) (((Data) __raw__).data)).add(identifier_name);
 		}
 
 		propagate(node, new Data(null, null, null));
@@ -537,7 +600,9 @@ public class ExampleVisitor extends AbstractVisitor {
 		private final SemanticPath DoStatement = new SemanticPath("DoStatement");
 		private final SemanticPath ForStatement = new SemanticPath("ForStatement");
 		private final SemanticPath SwitchStatement = new SemanticPath("SwitchStatement");
+		private final SemanticPath CaseStatement = new SemanticPath("CaseStatement");
 		private final SemanticPath VariableDeclaration = new SemanticPath("VariableDeclaration");
+		private final SemanticPath Expression = new SemanticPath("Expression");
 	}
 
 	private class Data {
