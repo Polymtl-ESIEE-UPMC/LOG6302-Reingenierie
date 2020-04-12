@@ -36,7 +36,7 @@ clear:
 run: clear
 	java -cp bin javaparser.JavaParser1_7 @target
 
-test:
+test: clear
 	java -cp bin javaparser.JavaParser1_7 test/Test.java
 
 dot:

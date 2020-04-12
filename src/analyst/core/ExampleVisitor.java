@@ -7,9 +7,9 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	private int case_id = -1;
 
-	private int genCaseID() {
+	private String genCaseID() {
 		case_id++;
-		return case_id;
+		return case_id + "";
 	}
 
 	public ExampleVisitor(final String file_name) {
@@ -149,7 +149,6 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final IfStatement node, final Object __raw__) {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if");
 			propagate(node, new Data(__raw__, Semantic.IfStatement, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().exit();
 		}
@@ -164,7 +163,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final ElseStatement node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loadCursor().addFlow("label", "ifConditionFalse");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loadCursor().addFlow("label", "False");
 			propagate(node, new Data(__raw__, null, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end();
 		}
@@ -178,8 +177,7 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public Object visit(final NoElseStatement node, final Object __raw__) {
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loadCursor().addFlow("label", "ifConditionFalse")
-					.end();
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loadCursor().addFlow("label", "False").end();
 		}
 		propagate(node, new Data(null, null, null));
 		return __raw__;
@@ -188,7 +186,6 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final WhileStatement node, final Object __raw__) {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while");
 			propagate(node, new Data(__raw__, Semantic.WhileStatement, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
 		}
@@ -203,7 +200,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final DoStatement node, final Object __raw__) {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("do");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("do", "");
 			propagate(node, new Data(__raw__, Semantic.DoStatement, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
 		}
@@ -218,7 +215,6 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final ForStatement node, final Object __raw__) {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("for");
 			propagate(node, new Data(__raw__, Semantic.ForStatement, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
 		}
@@ -233,8 +229,8 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final ForControl node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.ForStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("for", "forControl").saveCursor()
-					.addFlow("for", "forConditionTrue");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("for", "").saveCursor().addFlow("label",
+					"True");
 		}
 		propagate(node, new Data(null, null, null));
 		return __raw__;
@@ -243,7 +239,6 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final SwitchStatement node, final Object __raw__) {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch");
 			this.case_id = -1;
 			propagate(node, new Data(__raw__, Semantic.SwitchStatement, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
@@ -259,18 +254,14 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final SwitchLabel node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.SwitchStatement)) {
-			if (this.case_id > -1) {
-				Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().loadCursor().addFlow("case", "caseFalse")
-						.end().exit();
-			}
 
 			if (node.jjtGetNumChildren() > 0) {
-				Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case_" + genCaseID() + "_").saveCursor()
-						.addFlow("label", "caseTrue");
+				Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", genCaseID());
 			}
 
 			else {
-				Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("label", "default");
+				Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", "default");
+				((Data) __raw__).data = "default";
 			}
 		}
 
@@ -305,25 +296,47 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final ParExpression node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "ifCondition").saveCursor()
-					.addFlow("label", "ifConditionTrue");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if", "").saveCursor().addFlow("label",
+					"True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.WhileStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "whileCondition").saveCursor()
-					.addFlow("label", "whileConditionTrue");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while", "").saveCursor().addFlow("label",
+					"True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.DoStatement)) {
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "whileCondition").saveCursor()
-					.addFlow("label", "whileConditionTrue").loop().loadCursor().addFlow("label", "whileConditionFalse");
+					.addFlow("label", "True").loop().loadCursor().addFlow("label", "False");
 		}
 
 		else if (matchLexical(__raw__, Semantic.SwitchStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("action", "switchExpression");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", "");
 		}
 
 		propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
+	public Object visit(final BlockStatements node, final Object __raw__) {
+		String case_label = (String) ((Data) __raw__).data;
+		case_label = case_label != null ? case_label : "";
+
+		if (matchLexical(__raw__, Semantic.SwitchStatement)) {
+			if (!case_label.equals("default")) {
+				Zeus.singleton.connectClassDatabase().connectMethodDatabase().saveCursor().addFlow("label", "True");
+			}
+		}
+
+		propagate(node, new Data(__raw__, null, null));
+
+		if (matchLexical(__raw__, Semantic.SwitchStatement)) {
+			if (!case_label.equals("default")) {
+				Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().loadCursor().addFlow("label", "False");
+			}
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
+		}
+
 		return __raw__;
 	}
 
@@ -336,13 +349,11 @@ public class ExampleVisitor extends AbstractVisitor {
 		}
 
 		else if (matchLexical(__raw__, Semantic.WhileStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loop().loadCursor().addFlow("label",
-					"whileConditionFalse");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loop().loadCursor().addFlow("label", "False");
 		}
 
 		else if (matchLexical(__raw__, Semantic.ForStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loop().loadCursor().addFlow("label",
-					"forConditionFalse");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loop().loadCursor().addFlow("label", "False");
 		}
 
 		return __raw__;
@@ -533,8 +544,7 @@ public class ExampleVisitor extends AbstractVisitor {
 
 		private final SemanticPath context;
 		private final SemanticPath lexical;
-		@SuppressWarnings("unused")
-		private final Object data;
+		private Object data;
 
 		private Data(final SemanticPath context, final SemanticPath lexical, final Object data) {
 			this.context = context;

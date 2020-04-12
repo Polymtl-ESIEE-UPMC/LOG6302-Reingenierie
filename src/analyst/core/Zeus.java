@@ -3,7 +3,7 @@ package analyst.core;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -38,8 +38,10 @@ public class Zeus {
         private final String id = UUID.get();
         private final String type; // condition, entry, end,...etc
         private final String name;
-        private boolean alive = true;;
-        private final ArrayList<Flow> nexts = new ArrayList<Flow>();
+        private boolean alive = true;
+        private final HashMap<String, Flow> predecessors = new HashMap<String, Flow>();
+        private final HashMap<String, Flow> successors = new HashMap<String, Flow>();
+        private final HashMap<String, String> transition = new HashMap<String, String>();
 
         private Flow(final String type, final String name) {
           this.type = type;
@@ -51,7 +53,7 @@ public class Zeus {
       private final String return_type;
       private final String name;
 
-      private Flow current_cursor = new Flow("begin", "entry");
+      private Flow current_cursor;
       private final ArrayStack<Flow> saved_cursors = new ArrayStack<Flow>();
       private final ArrayStack<Flow> current_begin = new ArrayStack<Flow>(); /*
                                                                               * stack des points d'entree des structure
@@ -68,20 +70,18 @@ public class Zeus {
                                                                             * current_begin, c'est plus facile a
                                                                             * comprendre
                                                                             */
-      private final ArrayList<Flow> flows = new ArrayList<Flow>(); // structure de l'arbre utilise pour l'affichage
+      private final HashMap<String, Flow> flows = new HashMap<String, Flow>(); // structure de l'arbre utilise pour
+                                                                               // l'affichage
 
       private MethodData(final String return_type, final String name) {
         this.return_type = return_type;
         this.name = name;
-        this.current_begin.push(this.current_cursor);
-        this.current_end.push(new Flow("end", "exit"));
-        this.flows.add(this.current_cursor);
+        begin("entry", "");
       }
 
       public MethodData addFlow(final String type, final String name) {
         final Flow next_flow = new Flow(type, name);
         jumpTo(next_flow);
-        this.flows.add(next_flow);
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + name);
         return this;
       }
@@ -98,27 +98,56 @@ public class Zeus {
         return this;
       }
 
-      public MethodData begin(final String type) {
-        String erasure_type;
+      public MethodData begin(final String type, final String info) {
+
+        final Flow new_begin;
+        final Flow new_end;
 
         switch (type) {
+          case "entry":
+            new_begin = new Flow("begin", "entry");
+            new_end = new Flow("end", "exit");
+            break;
+          case "if":
+            new_begin = new Flow("condition", "ifCondition");
+            new_end = new Flow("end", "ifEnd");
+            break;
           case "while":
+            new_begin = new Flow("loop", "whileCondition");
+            new_end = new Flow("end", "whileEnd");
+            break;
           case "do":
+            new_begin = new Flow("loop", "doBegin");
+            new_end = new Flow("end", "doEnd");
+            break;
           case "for":
-            erasure_type = "loop";
+            new_begin = new Flow("loop", "forControl");
+            new_end = new Flow("end", "forEnd");
+            break;
+          case "switch":
+            new_begin = new Flow("condition", "switchExpression");
+            new_end = new Flow("end", "switchEnd");
+            break;
+          case "case":
+            if (this.current_cursor.type.equals("case")) {
+              new_begin = new Flow("case", this.current_cursor.name + ", " + "case " + info);
+              new_end = new Flow("end", this.current_cursor.name + ", " + "case " + info + " end");
+              this.current_begin.pop();
+              this.current_end.pop();
+            } else {
+              new_begin = new Flow("case", "case " + info);
+              new_end = new Flow("end", "case " + info + " end");
+            }
             break;
           default:
-            if (type.contains("case"))
-              erasure_type = "condition";
-            else
-              erasure_type = type;
+            new_begin = new Flow(type, type + " " + info + "Begin");
+            new_end = new Flow(type, type + " " + info + "End");
         }
 
-        addFlow(erasure_type, type + "Begin");
-        final Flow new_internal_end = new Flow(erasure_type, type + "End");
+        jumpTo(new_begin);
         this.current_begin.push(this.current_cursor);
-        this.current_end.push(new_internal_end);
-        this.flows.add(new_internal_end);
+        this.current_end.push(new_end);
+        this.flows.put(new_end.id, new_end);
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + type);
         return this;
       }
@@ -136,7 +165,7 @@ public class Zeus {
 
       public MethodData end() {
         jumpTo(this.current_end.peek());
-        log(new Throwable().getStackTrace()[0].getMethodName());
+        log(new Throwable().getStackTrace()[0].getMethodName() + " " + this.current_end.peek().name);
         return this;
       }
 
@@ -165,9 +194,11 @@ public class Zeus {
        * et sortie
        */
       public void exit() {
-        this.current_begin.pop();
-        this.current_end.pop();
-        log(new Throwable().getStackTrace()[0].getMethodName());
+        final Flow begin = this.current_begin.pop();
+        final Flow log_data = this.current_end.pop();
+        if (this.current_begin.isEmpty())
+          this.current_cursor = begin;
+        log(new Throwable().getStackTrace()[0].getMethodName() + " " + log_data.name);
       }
 
       private void blockFlowThenLinkTo(final Flow flow) {
@@ -178,9 +209,48 @@ public class Zeus {
       }
 
       private void jumpTo(final Flow next_flow) {
-        if (this.current_cursor.alive)
-          this.current_cursor.nexts.add(next_flow);
+
+        if (this.current_cursor != null && this.current_cursor.alive) {
+
+          if (this.current_cursor.type.equals("label")) {
+            swapFlow(this.current_cursor, next_flow, (predecessor) -> {
+              predecessor.transition.put(next_flow.id, this.current_cursor.name);
+            });
+          }
+
+          else if ((this.current_cursor.type.equals("case") && next_flow.type.equals("case"))
+              || this.current_cursor.type.equals("end")) {
+            swapFlow(this.current_cursor, next_flow, null);
+          }
+
+          else {
+            this.current_cursor.successors.put(next_flow.id, next_flow);
+            next_flow.predecessors.put(this.current_cursor.id, this.current_cursor);
+          }
+        }
         this.current_cursor = next_flow;
+        if (!this.flows.containsKey(next_flow.id))
+          this.flows.put(next_flow.id, next_flow);
+      }
+
+      private void swapFlow(final Flow old_flow, final Flow new_flow,
+          final java.util.function.Consumer<Flow> predecessors_side_effect_handler) {
+        new_flow.predecessors.putAll(old_flow.predecessors);
+        for (final Flow predecessor : old_flow.predecessors.values()) {
+          predecessor.successors.remove(old_flow.id);
+          predecessor.successors.put(new_flow.id, new_flow);
+          predecessor.transition.put(new_flow.id, predecessor.transition.get(old_flow.id));
+          predecessor.transition.remove(old_flow.id);
+          if (predecessors_side_effect_handler != null)
+            predecessors_side_effect_handler.accept(predecessor);
+        }
+        new_flow.successors.putAll(old_flow.successors);
+        for (final Flow flow : old_flow.successors.values()) {
+          flow.predecessors.remove(old_flow.id);
+          flow.predecessors.put(new_flow.id, new_flow);
+        }
+        new_flow.transition.putAll(old_flow.transition);
+        this.flows.remove(old_flow.id);
       }
 
       public String toString() {
@@ -322,10 +392,20 @@ public class Zeus {
       (new DotTreeWriter()).saveAsCFG(this.dot_tree_cfg);
   }
 
-  private void log(String s) {
+  private void log(final String s) {
     if (LOG) {
-      System.out.println(s);
-      new Exception("Logging").printStackTrace();
+      try {
+        final File file = new File("./log");
+        file.createNewFile();
+        final FileOutputStream fos = new FileOutputStream(file, true);
+        final PrintStream ps = new PrintStream(fos);
+        fos.write((s + "\n").getBytes());
+        new Exception("Logging").printStackTrace(ps);
+        fos.close();
+        ps.close();
+      } catch (final IOException e) {
+        e.printStackTrace();
+      }
     }
   }
 
@@ -358,19 +438,22 @@ public class Zeus {
       for (final DotNodeCFG dot_node : dot_tree_cfg.values()) {
         saveNode(dot_node, () -> {
           for (int i = 0; i < dot_node.methods.size(); i++) {
-            super.writeln(dot_node.methods.get(i).id + " -> " + dot_node.methods.get(i).flows.get(0).id);
+            super.writeln(dot_node.methods.get(i).id + " -> " + dot_node.methods.get(i).current_cursor.id);
             super.writeLabel(dot_node.methods.get(i).id, dot_node.methods.get(i).toString());
-            writeLabel(dot_node.methods.get(i).flows.get(0).id, dot_node.methods.get(i).flows.get(0).name,
-                dot_node.methods.get(i).flows.get(0).type);
-            for (int j = 0; j < dot_node.methods.get(i).flows.size(); j++) {
-              for (int k = 0; k < dot_node.methods.get(i).flows.get(j).nexts.size(); k++) {
-                super.writeln(dot_node.methods.get(i).flows.get(j).id + " -> "
-                    + dot_node.methods.get(i).flows.get(j).nexts.get(k).id);
-                writeLabel(dot_node.methods.get(i).flows.get(j).id, dot_node.methods.get(i).flows.get(j).name,
-                    dot_node.methods.get(i).flows.get(j).type);
-                writeLabel(dot_node.methods.get(i).flows.get(j).nexts.get(k).id,
-                    dot_node.methods.get(i).flows.get(j).nexts.get(k).name,
-                    dot_node.methods.get(i).flows.get(j).nexts.get(k).type);
+            writeLabel(dot_node.methods.get(i).current_cursor.id, dot_node.methods.get(i).current_cursor.name,
+                dot_node.methods.get(i).current_cursor.type);
+            for (final String key : dot_node.methods.get(i).flows.keySet()) {
+              for (final String k : dot_node.methods.get(i).flows.get(key).successors.keySet()) {
+                String transition_label = dot_node.methods.get(i).flows.get(key).transition
+                    .get(dot_node.methods.get(i).flows.get(key).successors.get(k).id);
+                transition_label = transition_label != null ? " [label=\"" + transition_label + "\"]" : "";
+                super.writeln(dot_node.methods.get(i).flows.get(key).id + " -> "
+                    + dot_node.methods.get(i).flows.get(key).successors.get(k).id + transition_label);
+                writeLabel(dot_node.methods.get(i).flows.get(key).id, dot_node.methods.get(i).flows.get(key).name,
+                    dot_node.methods.get(i).flows.get(key).type);
+                writeLabel(dot_node.methods.get(i).flows.get(key).successors.get(k).id,
+                    dot_node.methods.get(i).flows.get(key).successors.get(k).name,
+                    dot_node.methods.get(i).flows.get(key).successors.get(k).type);
               }
             }
           }
@@ -389,32 +472,29 @@ public class Zeus {
           super.end("]");
           break;
         case "condition":
+        case "case":
           super.begin(id + " [");
           super.writeln("label = \"" + label + "\"");
           super.writeln("shape = \"" + "diamond" + "\"");
           super.end("]");
           break;
         case "loop":
-          super.begin(id + " [");
-          super.writeln("label = \"" + label + "\"");
-          super.writeln("shape = \"" + "ellipse" + "\"");
-          super.end("]");
-          break;
-        case "label":
-          super.begin(id + " [");
-          super.writeln("label = \"" + label + "\"");
-          super.writeln("shape = \"" + "none" + "\"");
-          super.end("]");
-          break;
-        case "switch":
-          super.begin(id + " [");
-          super.writeln("label = \"" + label + "\"");
-          super.writeln("shape = \"" + "tripleoctagon" + "\"");
-          super.end("]");
+          if (!label.equals("doBegin")) {
+            super.begin(id + " [");
+            super.writeln("label = \"" + label + "\"");
+            super.writeln("shape = \"" + "Mdiamond" + "\"");
+            super.end("]");
+          } else {
+            super.begin(id + " [");
+            super.writeln("label = \"" + label + "\"");
+            super.writeln("shape = \"" + "rectangle" + "\"");
+            super.end("]");
+          }
           break;
         default:
           super.begin(id + " [");
-          super.writeln("label = \"{" + label + "}\"");
+          super.writeln("label = \"" + label + "\"");
+          super.writeln("shape = \"" + "ellipse" + "\"");
           super.end("]");
       }
     }
