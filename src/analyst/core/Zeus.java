@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -59,9 +61,13 @@ public class Zeus {
         private boolean alive = true;
         private final HashMap<String, Flow> predecessors = new HashMap<String, Flow>();
         private final HashMap<String, Flow> successors = new HashMap<String, Flow>();
+        private Flow immediate_dominator;
+        private Flow immediate_post_dominator;
         private final HashMap<String, String> transition = new HashMap<String, String>();
         private final ArrayStack<Definition> gen = new ArrayStack<Definition>();
         private final ArrayList<Definition> kill = new ArrayList<Definition>();
+        private final ArrayList<Definition> in = new ArrayList<Definition>();
+        private final ArrayList<Definition> out = new ArrayList<Definition>();
 
         private Flow(final String type, final String name) {
           this.type = type;
@@ -69,7 +75,7 @@ public class Zeus {
         }
 
         public String toString() {
-          String s = "{" + this.name + "|";
+          String s = "{flow " + this.id + ": " + this.name + "|";
           if (this.gen.isEmpty()) {
             s += "GEN = [ ]\\l";
           } else {
@@ -83,7 +89,23 @@ public class Zeus {
           for (Definition def : this.kill) {
             s += def.id + " ";
           }
-          s += " ]\\l}";
+          s += " ]\\l";
+          s += "|";
+          s += "IN = [ ";
+          for (Definition def : this.in) {
+            s += def.id + " ";
+          }
+          s += " ]\\l";
+          s += "|";
+          s += "OUT = [ ";
+          for (Definition def : this.out) {
+            s += def.id + " ";
+          }
+          s += " ]\\l";
+          s += "|";
+          s += "Immediate dominator: " + "flow " + this.immediate_dominator.id + "\\l";
+          s += "|";
+          s += "Immediate post-dominator: " + "flow " + this.immediate_post_dominator.id + "\\l}";
           return s;
         }
       }
@@ -268,16 +290,19 @@ public class Zeus {
        * et sortie
        */
       public void exit() {
-        final Flow begin = this.current_begin.pop();
+        final Flow entry = this.current_begin.pop();
         final Flow log_data = this.current_end.pop();
         if (this.current_begin.isEmpty()) {
-          this.current_cursor = begin;
-          kill();
+          this.current_cursor = entry;
+          computeKill();
+          computeInOut();
+          computeDominator();
+          computePostDominator();
         }
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + log_data.name);
       }
 
-      private void kill() {
+      private void computeKill() {
         for (Flow flow : this.flows.values()) {
           for (Definition definition : flow.gen) {
             for (Definition being_killed : this.definitions.get(definition.variable)) {
@@ -287,6 +312,170 @@ public class Zeus {
             }
           }
         }
+      }
+
+      private void computeInOut() {
+        boolean any_out_changed = true;
+        while (any_out_changed) {
+          any_out_changed = false;
+          for (Flow flow : this.flows.values()) {
+            if (!flow.name.equals("entry")) {
+              for (Flow predecessor : flow.predecessors.values()) {
+                flow.in.addAll(predecessor.out);
+              }
+              ArrayList<Definition> old_out = flow.out;
+              flow.out.addAll(flow.gen);
+              ArrayList<Definition> in_minus_kill = new ArrayList<Definition>();
+              for (Definition in : flow.in) {
+                if (!flow.kill.contains(in)) {
+                  in_minus_kill.add(in);
+                }
+              }
+              flow.out.addAll(in_minus_kill);
+              if (!old_out.equals(flow.out))
+                any_out_changed = true;
+            }
+          }
+        }
+      }
+
+      private void computeDominator() {
+        HashMap<String, ArrayStack<Flow>> dominators = new HashMap<String, ArrayStack<Flow>>();
+        this.current_cursor.immediate_dominator = this.current_cursor;
+        dominators.put(this.current_cursor.id, new ArrayStack<Flow>());
+        dominators.get(this.current_cursor.id).push(this.current_cursor);
+        for (Flow flow : this.flows.values()) {
+          if (!flow.equals(this.current_cursor)) {
+            dominators.put(flow.id, new ArrayStack<Flow>());
+            for (Flow fl : this.flows.values()) {
+              dominators.get(flow.id).add(fl);
+            }
+          }
+        }
+        ArrayStack<Flow> working_list = new ArrayStack<Flow>();
+        for (Flow successor : this.current_cursor.successors.values()) {
+          working_list.push(successor);
+        }
+        while (!working_list.isEmpty()) {
+          Flow working_flow = working_list.pop();
+          ArrayStack<Flow> intersect_dominators = new ArrayStack<Flow>();
+          for (Flow predecessor : working_flow.predecessors.values()) {
+            if (intersect_dominators.isEmpty())
+              intersect_dominators.addAll(dominators.get(predecessor.id));
+            else {
+              ArrayStack<Flow> new_intersect_dominators = new ArrayStack<Flow>();
+              for (Flow flow : dominators.get(predecessor.id)) {
+                if (intersect_dominators.contains(flow))
+                  new_intersect_dominators.add(flow);
+              }
+              intersect_dominators = new_intersect_dominators;
+            }
+          }
+          intersect_dominators.add(working_flow);
+          ArrayList<Flow> old_dominators = dominators.put(working_flow.id, intersect_dominators);
+          if (!old_dominators.equals(dominators.get(working_flow.id))) {
+            for (Flow successor : working_flow.successors.values()) {
+              working_list.push(successor);
+            }
+          }
+        }
+        for (Flow flow : this.flows.values()) {
+          Collections.sort(dominators.get(flow.id),
+              (flow1, flow2) -> computeDistance(flow1, flow) <= computeDistance(flow2, flow) ? 1 : -1);
+          if (dominators.get(flow.id).size() > 1)
+            dominators.get(flow.id).pop();
+          flow.immediate_dominator = dominators.get(flow.id).peek();
+        }
+      }
+
+      private void computePostDominator() {
+        HashMap<String, ArrayStack<Flow>> post_dominators = new HashMap<String, ArrayStack<Flow>>();
+        /*
+         * this is to bypass compiler, we know that there will be always flow "exit" in
+         * this.flows
+         */
+        Flow current_cursor = new Flow("smt", "smt");
+        for (Flow exit : this.flows.values()) {
+          if (exit.name.equals("exit")) {
+            current_cursor = exit;
+            break;
+          }
+        }
+        current_cursor.immediate_post_dominator = current_cursor;
+        post_dominators.put(current_cursor.id, new ArrayStack<Flow>());
+        post_dominators.get(current_cursor.id).push(current_cursor);
+        for (Flow flow : this.flows.values()) {
+          if (!flow.equals(current_cursor)) {
+            post_dominators.put(flow.id, new ArrayStack<Flow>());
+            for (Flow fl : this.flows.values()) {
+              post_dominators.get(flow.id).push(fl);
+            }
+          }
+        }
+        ArrayStack<Flow> working_list = new ArrayStack<Flow>();
+        for (Flow predecessor : current_cursor.predecessors.values()) {
+          working_list.push(predecessor);
+        }
+        while (!working_list.isEmpty()) {
+          Flow working_flow = working_list.pop();
+          ArrayStack<Flow> intersect_post_dominators = new ArrayStack<Flow>();
+          for (Flow successor : working_flow.successors.values()) {
+            if (intersect_post_dominators.isEmpty())
+              intersect_post_dominators.addAll(post_dominators.get(successor.id));
+            else {
+              ArrayStack<Flow> new_intersect_post_dominators = new ArrayStack<Flow>();
+              for (Flow flow : post_dominators.get(successor.id)) {
+                if (intersect_post_dominators.contains(flow))
+                  new_intersect_post_dominators.add(flow);
+              }
+              intersect_post_dominators = new_intersect_post_dominators;
+            }
+          }
+          intersect_post_dominators.add(working_flow);
+          ArrayList<Flow> old_post_dominators = post_dominators.put(working_flow.id, intersect_post_dominators);
+          if (!old_post_dominators.equals(post_dominators.get(working_flow.id))) {
+            for (Flow predecessor : working_flow.predecessors.values()) {
+              working_list.push(predecessor);
+            }
+          }
+        }
+        for (Flow flow : this.flows.values()) {
+          Collections.sort(post_dominators.get(flow.id),
+              (flow1, flow2) -> computeDistance(flow, flow1) <= computeDistance(flow, flow2) ? 1 : -1);
+          if (flow.id.equals("30")) {
+            System.out.println("Flow 30 has ");
+            for (Flow post_dominator : post_dominators.get(flow.id)) {
+              System.out.println(post_dominator.id);
+            }
+          }
+          if (post_dominators.get(flow.id).size() > 1)
+            post_dominators.get(flow.id).pop();
+          flow.immediate_post_dominator = post_dominators.get(flow.id).peek();
+        }
+      }
+
+      private int computeDistance(Flow from, Flow to) {
+        HashMap<String, Flow> argument_type_adapter = new HashMap<String, Flow>();
+        argument_type_adapter.put(from.id, from);
+        HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
+        return __recursive_task__(argument_type_adapter, to, visited);
+      }
+
+      private int __recursive_task__(HashMap<String, Flow> successors, Flow to, HashMap<String, Boolean> visited) {
+        HashMap<String, Flow> next_level_successors = new HashMap<String, Flow>();
+        for (Flow successor : successors.values()) {
+          if (successor.equals(to))
+            return 0;
+          for (Flow sub_successor : successor.successors.values()) {
+            if (visited.get(sub_successor.id) == null) {
+              next_level_successors.put(sub_successor.id, sub_successor);
+              visited.put(sub_successor.id, true);
+            }
+          }
+        }
+        if (next_level_successors.isEmpty())
+          return 9999999;
+        return 1 + __recursive_task__(next_level_successors, to, visited);
       }
 
       private void blockFlowThenLinkTo(final Flow flow) {
