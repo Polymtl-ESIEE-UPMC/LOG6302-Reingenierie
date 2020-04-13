@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -20,19 +21,36 @@ public class Zeus {
 
     private class FieldData {
 
-      private String type;
+      private final String type;
       private String name;
-
-      private FieldData() {
-      }
 
       private FieldData(final String type, final String name) {
         this.type = type;
         this.name = name;
       }
+
+      private void declareName(final String name) {
+        try {
+          if (this.name == null) {
+            this.name = name;
+          } else {
+            throw new Exception("Try to declare field without type");
+          }
+        } catch (final Exception e) {
+          e.printStackTrace();
+        }
+      }
     }
 
     class MethodData {
+
+      private int definition_id = 0;
+
+      private String genDefinitionID() {
+        int temp = this.definition_id;
+        this.definition_id++;
+        return "d" + temp;
+      }
 
       private class Flow {
         private final String id = UUID.get();
@@ -42,10 +60,53 @@ public class Zeus {
         private final HashMap<String, Flow> predecessors = new HashMap<String, Flow>();
         private final HashMap<String, Flow> successors = new HashMap<String, Flow>();
         private final HashMap<String, String> transition = new HashMap<String, String>();
+        private final ArrayStack<Definition> gen = new ArrayStack<Definition>();
+        private final ArrayList<Definition> kill = new ArrayList<Definition>();
 
         private Flow(final String type, final String name) {
           this.type = type;
           this.name = name;
+        }
+
+        public String toString() {
+          String s = "{" + this.name + "|";
+          if (this.gen.isEmpty()) {
+            s += "GEN = [ ]\\l";
+          } else {
+            for (Definition def : this.gen) {
+              s += "GEN " + def.id + ": " + def.variable + "=" + def.expression + "\\l";
+            }
+          }
+          s = s.replace("<", "\\<").replace(">", "\\>");
+          s += "|";
+          s += "KILL = [ ";
+          for (Definition def : this.kill) {
+            s += def.id + " ";
+          }
+          s += " ]\\l}";
+          return s;
+        }
+      }
+
+      private class Definition {
+        private final String id = genDefinitionID();
+        private final String variable;
+        private String expression;
+
+        private Definition(final String variable) {
+          this.variable = variable;
+        }
+
+        private void assignExpression(final String expression) {
+          try {
+            if (this.expression == null) {
+              this.expression = expression;
+            } else {
+              throw new Exception("Assign expression to no variable");
+            }
+          } catch (final Exception e) {
+            e.printStackTrace();
+          }
         }
       }
 
@@ -72,11 +133,24 @@ public class Zeus {
                                                                             */
       private final HashMap<String, Flow> flows = new HashMap<String, Flow>(); // structure de l'arbre utilise pour
                                                                                // l'affichage
+      private final HashMap<String, ArrayList<Definition>> definitions = new HashMap<String, ArrayList<Definition>>();
 
       private MethodData(final String return_type, final String name) {
         this.return_type = return_type;
         this.name = name;
         begin("entry", "");
+      }
+
+      public void genVar(final String variable) {
+        Definition new_definition = new Definition(variable);
+        this.current_cursor.gen.push(new_definition);
+        if (!definitions.containsKey(new_definition.variable))
+          definitions.put(new_definition.variable, new ArrayList<Definition>());
+        definitions.get(new_definition.variable).add(new_definition);
+      }
+
+      public void genExpression(final String expression) {
+        this.current_cursor.gen.peek().assignExpression(expression);
       }
 
       public MethodData addFlow(final String type, final String name) {
@@ -196,9 +270,23 @@ public class Zeus {
       public void exit() {
         final Flow begin = this.current_begin.pop();
         final Flow log_data = this.current_end.pop();
-        if (this.current_begin.isEmpty())
+        if (this.current_begin.isEmpty()) {
           this.current_cursor = begin;
+          kill();
+        }
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + log_data.name);
+      }
+
+      private void kill() {
+        for (Flow flow : this.flows.values()) {
+          for (Definition definition : flow.gen) {
+            for (Definition being_killed : this.definitions.get(definition.variable)) {
+              if (!being_killed.id.equals(definition.id)) {
+                flow.kill.add(being_killed);
+              }
+            }
+          }
+        }
       }
 
       private void blockFlowThenLinkTo(final Flow flow) {
@@ -254,7 +342,7 @@ public class Zeus {
       }
 
       public String toString() {
-        final String s = this.name + "(): " + this.return_type + "|";
+        final String s = this.name + "(): " + this.return_type;
         return s;
       }
     }
@@ -267,18 +355,10 @@ public class Zeus {
     public ArrayStack<MethodData> methods = new ArrayStack<MethodData>();
 
     public void declare(final String type, final String name) {
-      try {
-        if (type != null) {
-          fields.push(new FieldData(type, name));
-        } else if (name != null) {
-          if (fields.peek().name == null) {
-            fields.peek().name = name;
-          } else {
-            throw new Exception("Try to declare field without type");
-          }
-        }
-      } catch (final Exception e) {
-        e.printStackTrace();
+      if (type != null) {
+        fields.push(new FieldData(type, name));
+      } else if (name != null) {
+        fields.peek().declareName(name);
       }
     }
 
@@ -316,7 +396,7 @@ public class Zeus {
     }
 
     public String toString() {
-      String s = this.type + ": " + this.name + "|";
+      String s = "{" + this.type + ": " + this.name + "|";
       for (int i = 0; i < this.fields.size(); i++) {
         s += "+ " + this.fields.get(i).name + " : " + this.fields.get(i).type + "\\l";
       }
@@ -324,6 +404,7 @@ public class Zeus {
       for (int i = 0; i < this.methods.size(); i++) {
         s += "+ " + this.methods.get(i).name + "() : " + this.methods.get(i).return_type + "\\l";
       }
+      s += "}";
       return s;
     }
   }
@@ -440,7 +521,7 @@ public class Zeus {
           for (int i = 0; i < dot_node.methods.size(); i++) {
             super.writeln(dot_node.methods.get(i).id + " -> " + dot_node.methods.get(i).current_cursor.id);
             super.writeLabel(dot_node.methods.get(i).id, dot_node.methods.get(i).toString());
-            writeLabel(dot_node.methods.get(i).current_cursor.id, dot_node.methods.get(i).current_cursor.name,
+            writeLabel(dot_node.methods.get(i).current_cursor.id, dot_node.methods.get(i).current_cursor.toString(),
                 dot_node.methods.get(i).current_cursor.type);
             for (final String key : dot_node.methods.get(i).flows.keySet()) {
               for (final String k : dot_node.methods.get(i).flows.get(key).successors.keySet()) {
@@ -449,10 +530,10 @@ public class Zeus {
                 transition_label = transition_label != null ? " [label=\"" + transition_label + "\"]" : "";
                 super.writeln(dot_node.methods.get(i).flows.get(key).id + " -> "
                     + dot_node.methods.get(i).flows.get(key).successors.get(k).id + transition_label);
-                writeLabel(dot_node.methods.get(i).flows.get(key).id, dot_node.methods.get(i).flows.get(key).name,
+                writeLabel(dot_node.methods.get(i).flows.get(key).id, dot_node.methods.get(i).flows.get(key).toString(),
                     dot_node.methods.get(i).flows.get(key).type);
                 writeLabel(dot_node.methods.get(i).flows.get(key).successors.get(k).id,
-                    dot_node.methods.get(i).flows.get(key).successors.get(k).name,
+                    dot_node.methods.get(i).flows.get(key).successors.get(k).toString(),
                     dot_node.methods.get(i).flows.get(key).successors.get(k).type);
               }
             }
@@ -464,37 +545,41 @@ public class Zeus {
 
     private void writeLabel(final String id, final String label, final String type) {
       switch (type) {
-        case "begin":
-        case "end":
-          super.begin(id + " [");
-          super.writeln("label = \"" + label + "\"");
-          super.writeln("shape = \"" + "doublecircle" + "\"");
-          super.end("]");
-          break;
-        case "condition":
-        case "case":
-          super.begin(id + " [");
-          super.writeln("label = \"" + label + "\"");
-          super.writeln("shape = \"" + "diamond" + "\"");
-          super.end("]");
-          break;
-        case "loop":
-          if (!label.equals("doBegin")) {
-            super.begin(id + " [");
-            super.writeln("label = \"" + label + "\"");
-            super.writeln("shape = \"" + "Mdiamond" + "\"");
-            super.end("]");
-          } else {
-            super.begin(id + " [");
-            super.writeln("label = \"" + label + "\"");
-            super.writeln("shape = \"" + "rectangle" + "\"");
-            super.end("]");
-          }
-          break;
+        /*
+         * Styling problem, currently cannot have record-based shape with polygon-based
+         * shape, so we can only have record-based for all flow type
+         */
+        // case "begin":
+        // case "end":
+        // super.begin(id + " [");
+        // super.writeln("label = \"" + label + "\"");
+        // super.writeln("shape = \"" + "doublecircle" + "\"");
+        // super.end("]");
+        // break;
+        // case "condition":
+        // case "case":
+        // super.begin(id + " [");
+        // super.writeln("label = \"" + label + "\"");
+        // super.writeln("shape = \"" + "diamond" + "\"");
+        // super.end("]");
+        // break;
+        // case "loop":
+        // if (!label.equals("doBegin")) {
+        // super.begin(id + " [");
+        // super.writeln("label = \"" + label + "\"");
+        // super.writeln("shape = \"" + "Mdiamond" + "\"");
+        // super.end("]");
+        // } else {
+        // super.begin(id + " [");
+        // super.writeln("label = \"" + label + "\"");
+        // super.writeln("shape = \"" + "ellipse" + "\"");
+        // super.end("]");
+        // }
+        // break;
         default:
           super.begin(id + " [");
           super.writeln("label = \"" + label + "\"");
-          super.writeln("shape = \"" + "ellipse" + "\"");
+          super.writeln("shape = \"" + "record" + "\"");
           super.end("]");
       }
     }

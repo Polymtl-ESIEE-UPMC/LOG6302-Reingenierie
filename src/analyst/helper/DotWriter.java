@@ -11,7 +11,7 @@ public abstract class DotWriter {
 
   protected void writeLabel(String id, String label) {
     begin(id + " [");
-    writeln("label = \"{" + label + "}\"");
+    writeln("label = \"" + label + "\"");
     end("]");
   }
 

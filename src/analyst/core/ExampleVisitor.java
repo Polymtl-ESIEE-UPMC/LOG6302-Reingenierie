@@ -256,7 +256,7 @@ public class ExampleVisitor extends AbstractVisitor {
 
 		}
 
-		propagate(node, new Data(null, Semantic.CaseStatement, null));
+		propagate(node, new Data(null, Semantic.SwitchStatement.CaseStatement, null));
 		return __raw__;
 	}
 
@@ -284,10 +284,25 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
+	public Object visit(final StatementExpression node, final Object __raw__) {
+		if (matchContext(__raw__, Semantic.MethodBody)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("action", "Assign Statement");
+			propagate(node, new Data(__raw__, Semantic.AssignStatement, null));
+		} else {
+			propagate(node, new Data(null, null, null));
+		}
+		return __raw__;
+	}
+
 	public Object visit(final Expression node, final Object __raw__) {
-		node.jjtGetChild(0).jjtAccept(this, __raw__);
-		// right expression of assign statement
-		// propagate(node, new Data(null, null, null));
+		if (matchLexical(__raw__, Semantic.AssignStatement)) {
+			node.jjtGetChild(0).jjtAccept(this, new Data(__raw__, Semantic.AssignStatement.Variable, null));
+			// right expression of assign statement
+			if (node.jjtGetNumChildren() > 1)
+				node.jjtGetChild(1).jjtAccept(this, new Data(__raw__, Semantic.AssignStatement.Expression, null));
+		} else {
+			node.jjtGetChild(0).jjtAccept(this, __raw__);
+		}
 		return __raw__;
 	}
 
@@ -298,8 +313,37 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
+	public Object visit(final LocalVariableDeclarationStatement node, final Object __raw__) {
+
+		if (matchContext(__raw__, Semantic.MethodBody)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("action", "Variable Declaration");
+			propagate(node, new Data(__raw__, Semantic.VariableDeclaration, null));
+		}
+
+		else {
+			propagate(node, new Data(null, null, null));
+		}
+
+		return __raw__;
+	}
+
+	public Object visit(final VariableDeclarators node, final Object __raw__) {
+
+		if (matchLexical(__raw__, Semantic.VariableDeclaration)) {
+			if (node.jjtGetNumChildren() == 1) {
+				propagate(node, new Data(__raw__, Semantic.VariableDeclaration.VariableDefinition, null));
+				return __raw__;
+			}
+		}
+		propagate(node, new Data(null, null, null));
+		return __raw__;
+	}
+
 	public Object visit(final Expression2 node, final Object __raw__) {
-		// left expression of assign statement or just normal expression is here
+		/*
+		 * left expression of assign statement or just normal expression or right
+		 * expression of local declaration is here
+		 */
 		ArrayList<String> exprssion = new ArrayList<String>();
 		propagate(node, new Data(Semantic.Expression, null, exprssion));
 		String expression = "";
@@ -326,8 +370,20 @@ public class ExampleVisitor extends AbstractVisitor {
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", expression);
 		}
 
-		else if (matchLexical(__raw__, Semantic.CaseStatement)) {
+		else if (matchLexical(__raw__, Semantic.SwitchStatement.CaseStatement)) {
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", expression);
+		}
+
+		else if (matchLexical(__raw__, Semantic.VariableDeclaration.VariableDefinition)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(expression);
+		}
+
+		else if (matchLexical(__raw__, Semantic.AssignStatement.Variable)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(expression);
+		}
+
+		else if (matchLexical(__raw__, Semantic.AssignStatement.Expression)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(expression);
 		}
 
 		return __raw__;
@@ -416,20 +472,6 @@ public class ExampleVisitor extends AbstractVisitor {
 		return __raw__;
 	}
 
-	public Object visit(final LocalVariableDeclarationStatement node, final Object __raw__) {
-
-		if (matchContext(__raw__, Semantic.MethodBody)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("action", "Variable Declaration");
-			propagate(node, new Data(__raw__, Semantic.VariableDeclaration, null));
-		}
-
-		else {
-			propagate(node, new Data(null, null, null));
-		}
-
-		return __raw__;
-	}
-
 	public Object visit(final Type node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.ClassMetadata)) {
@@ -512,6 +554,10 @@ public class ExampleVisitor extends AbstractVisitor {
 			Zeus.singleton.connectClassDatabase().declare(identifier_name, null);
 		}
 
+		if (matchLexical(__raw__, Semantic.VariableDeclaration.VariableDefinition)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(identifier_name);
+		}
+
 		else if (matchContext(__raw__, Semantic.Expression)) {
 			((ArrayList<String>) (((Data) __raw__).data)).add(identifier_name);
 		}
@@ -545,8 +591,8 @@ public class ExampleVisitor extends AbstractVisitor {
 				super("ClassMetadata");
 			}
 
-			private final SemanticPath Extends = new SemanticPath(this.__path__, "Extends");
-			private final SemanticPath Implements = new SemanticPath(this.__path__, "Implements");
+			private final SemanticPath Extends = new SemanticPath(super.__path__, "Extends");
+			private final SemanticPath Implements = new SemanticPath(super.__path__, "Implements");
 		}
 
 		private final ClassBody ClassBody = new ClassBody();
@@ -557,7 +603,7 @@ public class ExampleVisitor extends AbstractVisitor {
 				super("ClassBody");
 			}
 
-			private final Member Member = new Member(this.__path__);
+			private final Member Member = new Member(super.__path__);
 
 			private class Member extends SemanticPath {
 
@@ -565,7 +611,7 @@ public class ExampleVisitor extends AbstractVisitor {
 					super(current_path, "Member");
 				}
 
-				private final SemanticPath Type = new SemanticPath(this.__path__, "Type");
+				private final SemanticPath Type = new SemanticPath(super.__path__, "Type");
 			}
 		}
 
@@ -576,33 +622,53 @@ public class ExampleVisitor extends AbstractVisitor {
 				super("MethodMetadata");
 			}
 
-			private final Parameters Parameters = new Parameters(this.__path__);
+			private final Parameters Parameters = new Parameters(super.__path__);
 
 			private class Parameters extends SemanticPath {
 				private Parameters(final String current_path) {
 					super(current_path, "Parameters");
 				}
 
-				private final SemanticPath Type = new SemanticPath(this.__path__, "Type");
+				private final SemanticPath Type = new SemanticPath(super.__path__, "Type");
 			}
 		}
 
-		private final MethodBody MethodBody = new MethodBody();
-
-		private class MethodBody extends SemanticPath {
-			private MethodBody() {
-				super("MethodBody");
-			}
-		}
-
+		private final SemanticPath MethodBody = new SemanticPath("MethodBody");
 		private final SemanticPath IfStatement = new SemanticPath("IfStatement");
 		private final SemanticPath WhileStatement = new SemanticPath("WhileStatement");
 		private final SemanticPath DoStatement = new SemanticPath("DoStatement");
 		private final SemanticPath ForStatement = new SemanticPath("ForStatement");
-		private final SemanticPath SwitchStatement = new SemanticPath("SwitchStatement");
-		private final SemanticPath CaseStatement = new SemanticPath("CaseStatement");
-		private final SemanticPath VariableDeclaration = new SemanticPath("VariableDeclaration");
+		private final SwitchStatement SwitchStatement = new SwitchStatement();
+
+		private class SwitchStatement extends SemanticPath {
+			private SwitchStatement() {
+				super("SwitchStatement");
+			}
+
+			private final SemanticPath CaseStatement = new SemanticPath(super.__path__, "CaseStatement");
+		}
+
 		private final SemanticPath Expression = new SemanticPath("Expression");
+		private final VariableDeclaration VariableDeclaration = new VariableDeclaration();
+
+		private class VariableDeclaration extends SemanticPath {
+			private VariableDeclaration() {
+				super("VariableDeclaration");
+			}
+
+			private final SemanticPath VariableDefinition = new SemanticPath(super.__path__, "VariableDefinition");
+		}
+
+		private final AssignStatement AssignStatement = new AssignStatement();
+
+		private class AssignStatement extends SemanticPath {
+			private AssignStatement() {
+				super("AssignStatement");
+			}
+
+			private final SemanticPath Variable = new SemanticPath(super.__path__, "Variable");
+			private final SemanticPath Expression = new SemanticPath(super.__path__, "Expression");
+		}
 	}
 
 	private class Data {
