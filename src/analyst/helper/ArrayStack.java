@@ -15,10 +15,14 @@ public class ArrayStack<T> extends ArrayList<T> {
   }
 
   public T peek() {
+    if (super.isEmpty())
+      return null;
     return super.get(super.size() - 1);
   }
 
   public T pop() {
+    if (super.isEmpty())
+      return null;
     return super.remove(super.size() - 1);
   }
 

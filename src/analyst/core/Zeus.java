@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -61,13 +60,15 @@ public class Zeus {
         private boolean alive = true;
         private final HashMap<String, Flow> predecessors = new HashMap<String, Flow>();
         private final HashMap<String, Flow> successors = new HashMap<String, Flow>();
-        private Flow immediate_dominator;
-        private Flow immediate_post_dominator;
         private final HashMap<String, String> transition = new HashMap<String, String>();
         private final ArrayStack<Definition> gen = new ArrayStack<Definition>();
         private final ArrayList<Definition> kill = new ArrayList<Definition>();
         private final ArrayList<Definition> in = new ArrayList<Definition>();
         private final ArrayList<Definition> out = new ArrayList<Definition>();
+        private final ArrayList<String> use = new ArrayList<String>();
+        private Flow immediate_dominator;
+        private Flow immediate_post_dominator;
+        private final ArrayList<Flow> control_dependant = new ArrayList<Flow>();
 
         private Flow(final String type, final String name) {
           this.type = type;
@@ -80,7 +81,7 @@ public class Zeus {
             s += "GEN = [ ]\\l";
           } else {
             for (Definition def : this.gen) {
-              s += "GEN " + def.id + ": " + def.variable + "=" + def.expression + "\\l";
+              s += "GEN " + def.id + ": " + def.variable + " = " + def.expression + "\\l";
             }
           }
           s = s.replace("<", "\\<").replace(">", "\\>");
@@ -103,9 +104,24 @@ public class Zeus {
           }
           s += " ]\\l";
           s += "|";
-          s += "Immediate dominator: " + "flow " + this.immediate_dominator.id + "\\l";
+          s += "USE = [ ";
+          for (String use : this.use) {
+            s += use + " ";
+          }
+          s += " ]\\l";
           s += "|";
-          s += "Immediate post-dominator: " + "flow " + this.immediate_post_dominator.id + "\\l}";
+          s += "Immediate dominator: "
+              + (!this.immediate_dominator.name.equals("null") ? "flow " + this.immediate_dominator.id : "") + "\\l";
+          s += "|";
+          s += "Immediate post-dominator: "
+              + (!this.immediate_post_dominator.name.equals("null") ? "flow " + this.immediate_post_dominator.id : "")
+              + "\\l";
+          s += "|";
+          s += "Control Dependant = [ ";
+          for (Flow flow : this.control_dependant) {
+            s += "flow_" + flow.id + " ";
+          }
+          s += " ]\\l}";
           return s;
         }
       }
@@ -173,6 +189,11 @@ public class Zeus {
 
       public void genExpression(final String expression) {
         this.current_cursor.gen.peek().assignExpression(expression);
+      }
+
+      public void use(final String variable) {
+        if (this.definitions.containsKey(variable))
+          this.current_cursor.use.add(variable);
       }
 
       public MethodData addFlow(final String type, final String name) {
@@ -298,6 +319,7 @@ public class Zeus {
           computeInOut();
           computeDominator();
           computePostDominator();
+          computeControlDependant();
         }
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + log_data.name);
       }
@@ -385,6 +407,8 @@ public class Zeus {
           if (dominators.get(flow.id).size() > 1)
             dominators.get(flow.id).pop();
           flow.immediate_dominator = dominators.get(flow.id).peek();
+          if (flow.name.equals("exit"))
+            flow.immediate_dominator = new Flow("null", "null");
         }
       }
 
@@ -442,15 +466,12 @@ public class Zeus {
         for (Flow flow : this.flows.values()) {
           Collections.sort(post_dominators.get(flow.id),
               (flow1, flow2) -> computeDistance(flow, flow1) <= computeDistance(flow, flow2) ? 1 : -1);
-          if (flow.id.equals("30")) {
-            System.out.println("Flow 30 has ");
-            for (Flow post_dominator : post_dominators.get(flow.id)) {
-              System.out.println(post_dominator.id);
-            }
-          }
           if (post_dominators.get(flow.id).size() > 1)
             post_dominators.get(flow.id).pop();
           flow.immediate_post_dominator = post_dominators.get(flow.id).peek();
+          if (flow.name.equals("entry"))
+            flow.immediate_post_dominator = new Flow("null", "null");
+          ;
         }
       }
 
@@ -458,10 +479,11 @@ public class Zeus {
         HashMap<String, Flow> argument_type_adapter = new HashMap<String, Flow>();
         argument_type_adapter.put(from.id, from);
         HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
-        return __recursive_task__(argument_type_adapter, to, visited);
+        return __recursive_task_computeDistance__(argument_type_adapter, to, visited);
       }
 
-      private int __recursive_task__(HashMap<String, Flow> successors, Flow to, HashMap<String, Boolean> visited) {
+      private int __recursive_task_computeDistance__(HashMap<String, Flow> successors, Flow to,
+          HashMap<String, Boolean> visited) {
         HashMap<String, Flow> next_level_successors = new HashMap<String, Flow>();
         for (Flow successor : successors.values()) {
           if (successor.equals(to))
@@ -475,7 +497,59 @@ public class Zeus {
         }
         if (next_level_successors.isEmpty())
           return 9999999;
-        return 1 + __recursive_task__(next_level_successors, to, visited);
+        return 1 + __recursive_task_computeDistance__(next_level_successors, to, visited);
+      }
+
+      @SuppressWarnings("unchecked")
+      private void computeControlDependant() {
+        for (Flow flow : this.flows.values()) {
+          for (Flow fl : this.flows.values()) {
+            if (!fl.equals(flow) && thereIsPathFromXtoYthatDoesntContainImmediatePostDominatorOfX(flow, fl)) {
+              flow.control_dependant.add(fl);
+            }
+          }
+        }
+        for (Flow flow : this.flows.values()) {
+          ArrayList<Flow> next_control_dependant = (ArrayList<Flow>) flow.control_dependant.clone();
+          for (Flow control_dependant : flow.control_dependant) {
+            for (Flow cd_of_cd : control_dependant.control_dependant) {
+              if (flow.control_dependant.contains(cd_of_cd))
+                next_control_dependant.remove(cd_of_cd);
+            }
+          }
+          flow.control_dependant.clear();
+          flow.control_dependant.addAll(next_control_dependant);
+        }
+      }
+
+      private boolean thereIsPathFromXtoYthatDoesntContainImmediatePostDominatorOfX(Flow x, Flow y) {
+        HashMap<String, Flow> argument_type_adapter = new HashMap<String, Flow>();
+        argument_type_adapter.put(x.id, x);
+        HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
+        return __recursive_task_thereIsPathFromXtoYthatDoesntContainImmediatePostDominatorOfX__(argument_type_adapter,
+            y, visited, x);
+      }
+
+      private boolean __recursive_task_thereIsPathFromXtoYthatDoesntContainImmediatePostDominatorOfX__(
+          HashMap<String, Flow> successors, Flow y, HashMap<String, Boolean> visited, Flow x) {
+        HashMap<String, Flow> next_level_successors = new HashMap<String, Flow>();
+        for (Flow successor : successors.values()) {
+          if (successor.equals(y))
+            if (!x.immediate_post_dominator.equals(successor))
+              return true;
+            else
+              return false;
+          for (Flow sub_successor : successor.successors.values()) {
+            if (visited.get(sub_successor.id) == null && !x.immediate_post_dominator.equals(sub_successor)) {
+              next_level_successors.put(sub_successor.id, sub_successor);
+              visited.put(sub_successor.id, true);
+            }
+          }
+        }
+        if (next_level_successors.isEmpty())
+          return false;
+        return true && __recursive_task_thereIsPathFromXtoYthatDoesntContainImmediatePostDominatorOfX__(
+            next_level_successors, y, visited, x);
       }
 
       private void blockFlowThenLinkTo(final Flow flow) {
