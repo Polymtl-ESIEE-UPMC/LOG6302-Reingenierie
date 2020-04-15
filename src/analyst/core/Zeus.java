@@ -13,7 +13,7 @@ import analyst.helper.*;
 
 public class Zeus {
 
-  private final boolean FEATURE_FLAG_UML = true;
+  private final boolean FEATURE_FLAG_UML = false;
   private final boolean FEATURE_FLAG_CFG = true;
   private final boolean LOG = false;
 
@@ -57,7 +57,9 @@ public class Zeus {
         private final String id = UUID.get();
         private final String type; // condition, entry, end,...etc
         private final String name;
+        private String info = "";
         private boolean alive = true;
+        private boolean incomplete = false;
         private final HashMap<String, Flow> predecessors = new HashMap<String, Flow>();
         private final HashMap<String, Flow> successors = new HashMap<String, Flow>();
         private final HashMap<String, String> transition = new HashMap<String, String>();
@@ -65,11 +67,13 @@ public class Zeus {
         private final ArrayList<Definition> kill = new ArrayList<Definition>();
         private final ArraySet<Definition> in = new ArraySet<Definition>();
         private final ArraySet<Definition> out = new ArraySet<Definition>();
-        private final ArrayList<String> use = new ArrayList<String>();
+        private final ArraySet<String> use = new ArraySet<String>();
         private Flow immediate_dominator;
         private Flow immediate_post_dominator;
         private final ArrayList<Flow> control_dependant = new ArrayList<Flow>();
         private final ArrayList<Flow> controller = new ArrayList<Flow>();
+        private final ArraySet<Flow> data_dependant = new ArraySet<Flow>();
+        private final ArraySet<Flow> data_controller = new ArraySet<Flow>();
 
         private Flow(final String type, final String name) {
           this.type = type;
@@ -77,7 +81,7 @@ public class Zeus {
         }
 
         public String toString() {
-          String s = "{flow " + this.id + ": " + this.name + "|";
+          String s = "{flow_" + this.id + ": " + this.name + " " + this.info + "|";
           if (this.gen.isEmpty()) {
             s += "GEN = [ ]\\l";
           } else {
@@ -128,6 +132,18 @@ public class Zeus {
           for (Flow flow : this.controller) {
             s += "flow_" + flow.id + " ";
           }
+          s += " ]\\l";
+          s += "|";
+          s += "Data Dependant = [ ";
+          for (Flow flow : this.data_dependant) {
+            s += "flow_" + flow.id + " ";
+          }
+          s += " ]\\l";
+          s += "|";
+          s += "Data Controller = [ ";
+          for (Flow flow : this.data_controller) {
+            s += "flow_" + flow.id + " ";
+          }
           s += " ]\\l}";
           return s;
         }
@@ -137,9 +153,11 @@ public class Zeus {
         private final String id = genDefinitionID();
         private final String variable;
         private String expression;
+        private final Flow flow;
 
-        private Definition(final String variable) {
+        private Definition(final String variable, final Flow flow) {
           this.variable = variable;
+          this.flow = flow;
         }
 
         private void assignExpression(final String expression) {
@@ -196,7 +214,7 @@ public class Zeus {
       }
 
       public void genVar(final String variable) {
-        Definition new_definition = new Definition(variable);
+        Definition new_definition = new Definition(variable, this.current_cursor);
         this.current_cursor.gen.push(new_definition);
         if (!definitions.containsKey(new_definition.variable))
           definitions.put(new_definition.variable, new ArrayList<Definition>());
@@ -231,6 +249,10 @@ public class Zeus {
         return this;
       }
 
+      public MethodData begin(final String type) {
+        return begin(type, "");
+      }
+
       public MethodData begin(final String type, final String info) {
 
         final Flow new_begin;
@@ -242,11 +264,13 @@ public class Zeus {
             new_end = new Flow("end", "exit");
             break;
           case "if":
-            new_begin = new Flow("condition", "if " + info);
+            new_begin = new Flow("condition", "if");
+            new_begin.info = info;
             new_end = new Flow("end", "ifEnd");
             break;
           case "while":
-            new_begin = new Flow("loop", "while " + info);
+            new_begin = new Flow("loop", "while");
+            new_begin.info = info;
             new_end = new Flow("break", "whileEnd");
             break;
           case "do":
@@ -258,7 +282,8 @@ public class Zeus {
             new_end = new Flow("break", "forEnd");
             break;
           case "switch":
-            new_begin = new Flow("switch", "switch " + info);
+            new_begin = new Flow("switch", "switch");
+            new_begin.info = info;
             new_end = new Flow("break", "switchEnd");
             break;
           case "case":
@@ -282,6 +307,25 @@ public class Zeus {
         this.current_end.push(new_end);
         this.flows.put(new_end.id, new_end);
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + type);
+        return this;
+      }
+
+      public MethodData markIncomplete() {
+        this.current_cursor.incomplete = true;
+        return this;
+      }
+
+      public MethodData modify(final String info) {
+        if (this.current_cursor.incomplete) {
+          this.current_cursor.incomplete = false;
+          this.current_cursor.info = info;
+        } else {
+          try {
+            throw new Exception("Try to modify completed flow");
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
         return this;
       }
 
@@ -335,6 +379,7 @@ public class Zeus {
           computeDominator();
           computePostDominator();
           computeControlDependant();
+          computeDataDependant();
         }
         log(new Throwable().getStackTrace()[0].getMethodName() + " " + log_data.name);
       }
@@ -571,6 +616,37 @@ public class Zeus {
           return false;
         return true && __recursive_task_thereIsPathFromXtoYthatDoesntContainImmediatePostDominatorOfX__(
             next_level_successors, y, visited, x);
+      }
+
+      private void computeDataDependant() {
+        for (Flow flow : this.flows.values()) {
+          for (String use : flow.use) {
+            for (Definition def : flow.in) {
+              if (def.variable.equals(use)) {
+                flow.data_controller.add(def.flow);
+                def.flow.data_dependant.add(flow);
+              }
+            }
+          }
+        }
+      }
+
+      private boolean thereIsPathFromXtoY(Flow x, Flow y, ArrayStack<Flow> path) {
+        path.push(x);
+        for (Flow succ : x.successors.values()) {
+          if (succ.equals(y)) {
+            path.push(succ);
+            return true;
+          } else {
+            if (!succ.successors.isEmpty()) {
+              if (thereIsPathFromXtoY(succ, y, path)) {
+                return true;
+              }
+            }
+          }
+        }
+        path.pop();
+        return false;
       }
 
       private void blockFlowThenLinkTo(final Flow flow) {

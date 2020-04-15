@@ -39,6 +39,9 @@ run: clear
 test: clear
 	java -cp bin javaparser.JavaParser1_7 test/Test.java
 
+worldcount: clear
+	java -cp bin javaparser.JavaParser1_7 test/WordCount.java
+
 dot:
 	-find results/uml/dot -type f -name "*.dot" | xargs dot -Tpng -O
 	-mkdir -p results/uml/png && mv results/uml/dot/*.png results/uml/png

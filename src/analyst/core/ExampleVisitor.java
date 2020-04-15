@@ -209,10 +209,14 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final ForControl node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.ForStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("for", "").saveCursor().addFlow("label",
-					"True");
+			ArrayStack<String> expression = new ArrayStack<String>();
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("for").markIncomplete();
+			propagate(node, new Data(null, Semantic.ForControl, expression));
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(buildString(expression)).saveCursor()
+					.addFlow("label", "True");
+		} else {
+			propagate(node, new Data(null, null, null));
 		}
-		propagate(node, new Data(null, null, null));
 		return __raw__;
 	}
 
@@ -362,47 +366,76 @@ public class ExampleVisitor extends AbstractVisitor {
 		 * left expression of assign statement or just normal expression or right
 		 * expression of local declaration is here
 		 */
-		ArrayStack<String> expression = new ArrayStack<String>();
-		propagate(node, new Data(__raw__, null, expression));
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if", buildString(expression)).saveCursor()
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if").markIncomplete();
+		}
+
+		else if (matchLexical(__raw__, Semantic.WhileStatement)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while").markIncomplete();
+		}
+
+		else if (matchLexical(__raw__, Semantic.DoStatement)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "while").markIncomplete();
+		}
+
+		else if (matchLexical(__raw__, Semantic.SwitchStatement)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch").markIncomplete();
+		}
+
+		ArrayStack<String> expression = new ArrayStack<String>();
+		if (matchLexical(__raw__, Semantic.IfStatement) || matchLexical(__raw__, Semantic.WhileStatement)
+				|| matchLexical(__raw__, Semantic.DoStatement) || matchLexical(__raw__, Semantic.SwitchStatement)
+				|| matchLexical(__raw__, Semantic.ForControl)) {
+			propagate(node, new Data(Semantic.AssignStatement.Expression, __raw__, expression));
+		} else {
+			propagate(node, new Data(__raw__, null, expression));
+		}
+
+		String signal = expression.peek();
+		if (signal.equals("no_gen")) {
+			expression.pop();
+		}
+		String escaped_expression = buildString(expression).replace("\"", "\\\"").replace("\\", "\\\\").replace("|", "\\|");
+
+		if (matchLexical(__raw__, Semantic.IfStatement)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(escaped_expression).saveCursor()
 					.addFlow("label", "True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.WhileStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while", buildString(expression)).saveCursor()
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(escaped_expression).saveCursor()
 					.addFlow("label", "True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.DoStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase()
-					.addFlow("condition", "while " + buildString(expression)).saveCursor().addFlow("label", "True").loop()
-					.loadCursor().addFlow("label", "False");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(escaped_expression).saveCursor()
+					.addFlow("label", "True").loop().loadCursor().addFlow("label", "False");
 		}
 
 		else if (matchLexical(__raw__, Semantic.SwitchStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", buildString(expression));
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(escaped_expression);
 		}
 
 		else if (matchLexical(__raw__, Semantic.SwitchStatement.CaseStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", buildString(expression));
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", escaped_expression);
 		}
 
 		else if (matchLexical(__raw__, Semantic.AssignStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(buildString(expression));
+			if (!signal.equals("no_gen"))
+				Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(escaped_expression);
 		}
 
 		else if (matchLexical(__raw__, Semantic.AssignStatement.Expression)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(buildString(expression));
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(escaped_expression);
 		}
 
 		else if (matchLexical(__raw__, Semantic.VariableDeclaration.Expression)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(buildString(expression));
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(escaped_expression);
 		}
 
 		if (__raw__ instanceof Data)
-			((Data) __raw__).value.push(buildString(expression));
+			((Data) __raw__).value.push(escaped_expression);
 		return __raw__;
 	}
 
@@ -420,6 +453,31 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final InfixOp node, final Object __raw__) {
 		if (__raw__ instanceof Data)
 			((Data) __raw__).value.push(node.jjtGetFirstToken().image);
+		return __raw__;
+	}
+
+	public Object visit(final Expression3 node, final Object __raw__) {
+		if (matchContext(__raw__, Semantic.VariableDeclaration.Expression)
+				|| matchContext(__raw__, Semantic.AssignStatement.Expression)
+				|| matchContext(__raw__, Semantic.AssignStatement)) {
+			if (!matchLexical(__raw__, Semantic.ForControl)) {
+				if (node.jjtGetChild(node.jjtGetNumChildren() - 1) instanceof PostfixOp) {
+					ArrayStack<String> expression = new ArrayStack<String>();
+					node.jjtGetChild(0).jjtAccept(this, new Data(Semantic.AssignStatement.Expression, null, expression));
+					Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(buildString(expression));
+					for (int i = 1; i < node.jjtGetNumChildren(); i++) {
+						node.jjtGetChild(i).jjtAccept(this, new Data(Semantic.AssignStatement.Expression, null, expression));
+					}
+					Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(buildString(expression));
+					if (__raw__ instanceof Data)
+						((Data) __raw__).value.push(buildString(expression));
+					if (matchContext(__raw__, Semantic.AssignStatement))
+						((Data) __raw__).value.push("no_gen");
+					return __raw__;
+				}
+			}
+		}
+		propagate(node, __raw__);
 		return __raw__;
 	}
 
@@ -446,7 +504,6 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public Object visit(final Literal node, final Object __raw__) {
 		String literal = ((SimpleNode) node.jjtGetChild(0)).jjtGetFirstToken().image;
-		literal = literal.replace("\"", "\\\"");
 		if (__raw__ instanceof Data)
 			((Data) __raw__).value.push(literal);
 		return __raw__;
@@ -600,6 +657,7 @@ public class ExampleVisitor extends AbstractVisitor {
 		private final SemanticPath WhileStatement = new SemanticPath("WhileStatement");
 		private final SemanticPath DoStatement = new SemanticPath("DoStatement");
 		private final SemanticPath ForStatement = new SemanticPath("ForStatement");
+		private final SemanticPath ForControl = new SemanticPath("ForControl");
 		private final SwitchStatement SwitchStatement = new SwitchStatement();
 
 		private class SwitchStatement extends SemanticPath {
