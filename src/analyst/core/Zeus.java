@@ -63,12 +63,13 @@ public class Zeus {
         private final HashMap<String, String> transition = new HashMap<String, String>();
         private final ArrayStack<Definition> gen = new ArrayStack<Definition>();
         private final ArrayList<Definition> kill = new ArrayList<Definition>();
-        private final ArrayList<Definition> in = new ArrayList<Definition>();
-        private final ArrayList<Definition> out = new ArrayList<Definition>();
+        private final ArraySet<Definition> in = new ArraySet<Definition>();
+        private final ArraySet<Definition> out = new ArraySet<Definition>();
         private final ArrayList<String> use = new ArrayList<String>();
         private Flow immediate_dominator;
         private Flow immediate_post_dominator;
         private final ArrayList<Flow> control_dependant = new ArrayList<Flow>();
+        private final ArrayList<Flow> controller = new ArrayList<Flow>();
 
         private Flow(final String type, final String name) {
           this.type = type;
@@ -121,6 +122,12 @@ public class Zeus {
           for (Flow flow : this.control_dependant) {
             s += "flow_" + flow.id + " ";
           }
+          s += " ]\\l";
+          s += "|";
+          s += "Controller = [ ";
+          for (Flow flow : this.controller) {
+            s += "flow_" + flow.id + " ";
+          }
           s += " ]\\l}";
           return s;
         }
@@ -143,6 +150,15 @@ public class Zeus {
               throw new Exception("Assign expression to no variable");
             }
           } catch (final Exception e) {
+            System.out.println("in class " + class_name);
+            System.out.println("Assign expression " + expression);
+            System.out.println("Current definition " + this.variable + " = " + this.expression);
+            try {
+              Thread.sleep(5000);
+            } catch (InterruptedException e1) {
+              // TODO Auto-generated catch block
+              e1.printStackTrace();
+            }
             e.printStackTrace();
           }
         }
@@ -231,19 +247,19 @@ public class Zeus {
             break;
           case "while":
             new_begin = new Flow("loop", "while " + info);
-            new_end = new Flow("end", "whileEnd");
+            new_end = new Flow("break", "whileEnd");
             break;
           case "do":
             new_begin = new Flow("loop", "doBegin");
-            new_end = new Flow("end", "doEnd");
+            new_end = new Flow("break", "doEnd");
             break;
           case "for":
             new_begin = new Flow("loop", "forControl");
-            new_end = new Flow("end", "forEnd");
+            new_end = new Flow("break", "forEnd");
             break;
           case "switch":
-            new_begin = new Flow("condition", "switch " + info);
-            new_end = new Flow("end", "switchEnd");
+            new_begin = new Flow("switch", "switch " + info);
+            new_end = new Flow("break", "switchEnd");
             break;
           case "case":
             if (this.current_cursor.type.equals("case")) {
@@ -293,8 +309,7 @@ public class Zeus {
             break;
           case "break":
             for (int i = 0; i < this.current_end.size(); i++) {
-              if (this.current_end.asStack().get(i).type.equals("loop")
-                  || this.current_end.asStack().get(i).type.equals("switch")) {
+              if (this.current_end.asStack().get(i).type.equals("break")) {
                 blockFlowThenLinkTo(this.current_end.asStack().get(i));
                 break;
               }
@@ -336,18 +351,21 @@ public class Zeus {
         }
       }
 
+      @SuppressWarnings("unchecked")
       private void computeInOut() {
         boolean any_out_changed = true;
         while (any_out_changed) {
           any_out_changed = false;
           for (Flow flow : this.flows.values()) {
             if (!flow.name.equals("entry")) {
+              flow.in.clear();
               for (Flow predecessor : flow.predecessors.values()) {
                 flow.in.addAll(predecessor.out);
               }
-              ArrayList<Definition> old_out = flow.out;
+              ArraySet<Definition> old_out = (ArraySet<Definition>) flow.out.clone();
+              flow.out.clear();
               flow.out.addAll(flow.gen);
-              ArrayList<Definition> in_minus_kill = new ArrayList<Definition>();
+              ArraySet<Definition> in_minus_kill = new ArraySet<Definition>();
               for (Definition in : flow.in) {
                 if (!flow.kill.contains(in)) {
                   in_minus_kill.add(in);
@@ -519,6 +537,9 @@ public class Zeus {
           }
           flow.control_dependant.clear();
           flow.control_dependant.addAll(next_control_dependant);
+          for (Flow dependant : flow.control_dependant) {
+            dependant.controller.add(flow);
+          }
         }
       }
 
@@ -570,7 +591,7 @@ public class Zeus {
           }
 
           else if ((this.current_cursor.type.equals("case") && next_flow.type.equals("case"))
-              || this.current_cursor.type.equals("end")) {
+              || this.current_cursor.type.equals("end") || this.current_cursor.type.equals("break")) {
             swapFlow(this.current_cursor, next_flow, null);
           }
 
@@ -689,12 +710,15 @@ public class Zeus {
 
   public static Zeus singleton = new Zeus();
 
+  String class_name;
+
   public ClassData declareClass() {
     this.class_database.push(new ClassData());
     return this.class_database.peek();
   }
 
   public ClassData connectClassDatabase() {
+    this.class_name = this.class_database.peek().name;
     return this.class_database.peek();
   }
 

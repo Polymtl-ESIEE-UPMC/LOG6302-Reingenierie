@@ -7,21 +7,25 @@ public class Test {
       a = 2;
       int d = 5;
       while (a < 3) {
-        b = 3;
-        d = 6;
+        d = b + iana;
       }
       for (int i = 0; i < 10; i++) {
         switch (i) {
           case 1:
           case 2:
-            c = 4;
+            c = a + b;
+            System.out.print(b);
             break;
           case 3:
-            d = 7;
+            d = c + a;
             continue;
           case 4:
-            b = 8;
+            b = a + d;
           default:
+        }
+        if (i > 7) {
+          System.out.print(c);
+          break;
         }
       }
     } else {

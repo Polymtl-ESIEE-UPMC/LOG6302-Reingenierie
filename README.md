@@ -14,6 +14,5 @@ Il y a des flags pour activer ou desactiver le fonctionnement UML ou CFG. Simple
 
 `make ast FROM=$node1 TO=$node2 DEPTH=$number` est un helper pour visualiser le AST entre node1 et node1, detaille jusqu'au le sous niveau $number, il n'a pas d'impact sur le main program
 
-# Some concept used in main program
-
-- in ExampleVisitor:
+# UNSUPPORTED syntax
+Multiple assignment: a = b = c = d = 0

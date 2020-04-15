@@ -29,7 +29,9 @@ public class ExampleVisitor extends AbstractVisitor {
 
 		if (matchLexical(__raw__, Semantic.ClassMetadata)) {
 			Zeus.singleton.connectClassDatabase().type = type;
-			Zeus.singleton.connectClassDatabase().name = getReturnValue(node.jjtGetChild(0).jjtAccept(this, __raw__));
+			ArrayStack<String> name = new ArrayStack<String>();
+			node.jjtGetChild(0).jjtAccept(this, new Data(__raw__, name));
+			Zeus.singleton.connectClassDatabase().name = buildString(name);
 			propagate(node, __raw__);
 		}
 
@@ -334,25 +336,20 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final StatementExpression node, final Object __raw__) {
 		if (matchContext(__raw__, Semantic.MethodBody)) {
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("action", "Assign Statement");
-			propagate(node, new Data(null, Semantic.AssignStatement, null));
+			propagate(node, new Data(Semantic.AssignStatement, Semantic.AssignStatement, null));
 		} else {
 			propagate(node, new Data(null, null, null));
 		}
 		return __raw__;
 	}
 
-	public Object visit(final Expression node, final Object __raw__) {
-		String expression = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			expression += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
-		return expression;
-	}
-
 	public Object visit(final ExpressionRest node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.AssignStatement)) {
-			propagate(node, new Data(Semantic.AssignStatement.Expression, Semantic.AssignStatement.Expression, null));
+			ArrayStack<String> expression = new ArrayStack<String>();
+			propagate(node, new Data(Semantic.AssignStatement.Expression, Semantic.AssignStatement.Expression, expression));
+			if (__raw__ instanceof Data)
+				((Data) __raw__).value.push(buildString(expression));
 		} else {
 			propagate(node, __raw__);
 		}
@@ -361,141 +358,127 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final Expression1 node, final Object __raw__) {
-		String expression = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			expression += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
-		return expression;
-	}
-
-	public Object visit(final Expression1Rest node, final Object __raw__) {
-		String expression = " ? ";
-		expression += getReturnValue(node.jjtGetChild(0).jjtAccept(this, __raw__));
-		expression += " : ";
-		expression += getReturnValue(node.jjtGetChild(1).jjtAccept(this, __raw__));
-		return expression;
-	}
-
-	public Object visit(final Expression2 node, final Object __raw__) {
 		/*
 		 * left expression of assign statement or just normal expression or right
 		 * expression of local declaration is here
 		 */
-		String expression = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			expression += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
+		ArrayStack<String> expression = new ArrayStack<String>();
+		propagate(node, new Data(__raw__, null, expression));
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if", expression).saveCursor()
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if", buildString(expression)).saveCursor()
 					.addFlow("label", "True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.WhileStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while", expression).saveCursor()
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("while", buildString(expression)).saveCursor()
 					.addFlow("label", "True");
 		}
 
 		else if (matchLexical(__raw__, Semantic.DoStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().addFlow("condition", "while " + expression)
-					.saveCursor().addFlow("label", "True").loop().loadCursor().addFlow("label", "False");
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase()
+					.addFlow("condition", "while " + buildString(expression)).saveCursor().addFlow("label", "True").loop()
+					.loadCursor().addFlow("label", "False");
 		}
 
 		else if (matchLexical(__raw__, Semantic.SwitchStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", expression);
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("switch", buildString(expression));
 		}
 
 		else if (matchLexical(__raw__, Semantic.SwitchStatement.CaseStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", expression);
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("case", buildString(expression));
 		}
 
 		else if (matchLexical(__raw__, Semantic.AssignStatement)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(expression);
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(buildString(expression));
 		}
 
 		else if (matchLexical(__raw__, Semantic.AssignStatement.Expression)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(expression);
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(buildString(expression));
 		}
 
 		else if (matchLexical(__raw__, Semantic.VariableDeclaration.Expression)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(expression);
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genExpression(buildString(expression));
 		}
 
-		return expression;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(buildString(expression));
+		return __raw__;
 	}
 
-	public Object visit(final Expression2Rest node, final Object __raw__) {
-		String expression = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			expression += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
-		return expression;
+	public Object visit(final Expression1Rest node, final Object __raw__) {
+		ArrayStack<String> expression = new ArrayStack<String>();
+		expression.push(" ? ");
+		node.jjtGetChild(0).jjtAccept(this, new Data(__raw__, expression));
+		expression.push(" : ");
+		node.jjtGetChild(1).jjtAccept(this, new Data(__raw__, expression));
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(buildString(expression));
+		return __raw__;
 	}
 
 	public Object visit(final InfixOp node, final Object __raw__) {
-		return node.jjtGetFirstToken().image;
-	}
-
-	public Object visit(final Expression3 node, final Object __raw__) {
-		String expression = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			expression += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
-		return expression;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(node.jjtGetFirstToken().image);
+		return __raw__;
 	}
 
 	public Object visit(final PrefixOp node, final Object __raw__) {
-		return node.jjtGetFirstToken().image;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(node.jjtGetFirstToken().image);
+		return __raw__;
 	}
 
 	public Object visit(final Primary node, final Object __raw__) {
 		// construct identifier variable here
-		String variable = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			variable += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
+		ArrayStack<String> variable = new ArrayStack<String>();
+		propagate(node, new Data(__raw__, variable));
+
+		if (matchContext(__raw__, Semantic.VariableDeclaration.Expression)
+				|| matchContext(__raw__, Semantic.AssignStatement.Expression)) {
+			Zeus.singleton.connectClassDatabase().connectMethodDatabase().use(buildString(variable));
 		}
 
-		if (matchContext(__raw__, Semantic.VariableDeclaration.Expression)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().use(variable);
-		}
-
-		else if (matchContext(__raw__, Semantic.AssignStatement.Expression)) {
-			Zeus.singleton.connectClassDatabase().connectMethodDatabase().use(variable);
-		}
-
-		return variable;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(buildString(variable));
+		return __raw__;
 	}
 
 	public Object visit(final Literal node, final Object __raw__) {
 		String literal = ((SimpleNode) node.jjtGetChild(0)).jjtGetFirstToken().image;
 		literal = literal.replace("\"", "\\\"");
-		return literal;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(literal);
+		return __raw__;
 	}
 
 	public Object visit(final IdentifierSuffix node, final Object __raw__) {
-		if (matchLexical(__raw__, Semantic.AssignStatement)) {
-			String expression = "";
-			for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-				expression += getReturnValue(
-						node.jjtGetChild(i).jjtAccept(this, new Data(Semantic.AssignStatement.Expression, null, null)));
-			}
-			return expression;
+		if (matchContext(__raw__, Semantic.AssignStatement)) {
+			ArrayStack<String> expression = new ArrayStack<String>();
+			propagate(node, new Data(Semantic.AssignStatement.Expression, null, expression));
+			if (__raw__ instanceof Data)
+				((Data) __raw__).value.push(buildString(expression));
 		} else {
 			propagate(node, __raw__);
-			return __raw__;
 		}
+		return __raw__;
 	}
 
 	public Object visit(final Arguments node, final Object __raw__) {
-		String arguments = "";
+		ArrayStack<String> arguments = new ArrayStack<String>();
 		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			arguments += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__)) + " ";
+			node.jjtGetChild(i).jjtAccept(this, new Data(__raw__, arguments));
+			arguments.push(" ");
 		}
-		return " ( " + arguments + ")";
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(" ( " + buildString(arguments) + ")");
+		return __raw__;
 	}
 
 	public Object visit(final PostfixOp node, final Object __raw__) {
-		return node.jjtGetFirstToken().image;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(node.jjtGetFirstToken().image);
+		return __raw__;
 	}
 
 	/* ************ SECTION END *************** */
@@ -504,9 +487,10 @@ public class ExampleVisitor extends AbstractVisitor {
 	public Object visit(final TypeList node, final Object __raw__) {
 
 		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			String reference_type = getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
+			ArrayStack<String> reference_type = new ArrayStack<String>();
+			node.jjtGetChild(i).jjtAccept(this, __raw__);
 			if (matchLexical(__raw__, Semantic.ClassMetadata)) {
-				Zeus.singleton.connectClassDatabase().implments.add(reference_type);
+				Zeus.singleton.connectClassDatabase().implments.add(buildString(reference_type));
 			}
 		}
 
@@ -515,32 +499,24 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public Object visit(final Type node, final Object __raw__) {
 
-		String type = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			type += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
+		ArrayStack<String> type = new ArrayStack<String>();
+		propagate(node, new Data(null, null, type));
 
 		if (matchLexical(__raw__, Semantic.ClassMetadata)) {
-			Zeus.singleton.connectClassDatabase().extnds = type;
+			Zeus.singleton.connectClassDatabase().extnds = buildString(type);
 		}
 
 		else if (matchLexical(__raw__, Semantic.ClassBody.Member)) {
-			Zeus.singleton.connectClassDatabase().declare(type, null);
+			Zeus.singleton.connectClassDatabase().declare(buildString(type), null);
 		}
 
 		return __raw__;
 	}
 
 	public Object visit(final BasicType node, final Object __raw__) {
-		return node.jjtGetFirstToken().image;
-	}
-
-	public Object visit(final ReferenceType node, final Object __raw__) {
-		String reference_type = "";
-		for (int i = 0; i < node.jjtGetNumChildren(); i++) {
-			reference_type += getReturnValue(node.jjtGetChild(i).jjtAccept(this, __raw__));
-		}
-		return reference_type;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(node.jjtGetFirstToken().image);
+		return __raw__;
 	}
 
 	/* ************ SECTION END *************** */
@@ -566,7 +542,9 @@ public class ExampleVisitor extends AbstractVisitor {
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().genVar(identifier_name);
 		}
 
-		return identifier_name;
+		if (__raw__ instanceof Data)
+			((Data) __raw__).value.push(identifier_name);
+		return __raw__;
 	}
 
 	private final SemanticData Semantic = new SemanticData();
@@ -677,6 +655,13 @@ public class ExampleVisitor extends AbstractVisitor {
 			this.lexical = data_with_lexical != null ? ((Data) data_with_lexical).lexical : null;
 			this.value = value != null ? value : new ArrayStack<String>();
 		}
+
+		private Data(final Object data_with_context_and_lexical, final ArrayStack<String> value) {
+			this.context = data_with_context_and_lexical != null ? ((Data) data_with_context_and_lexical).context : null;
+			this.lexical = data_with_context_and_lexical != null ? ((Data) data_with_context_and_lexical).lexical : null;
+			this.value = value != null ? value : new ArrayStack<String>();
+		}
+
 	}
 
 	private boolean matchContext(final Object o, final SemanticPath context) {
@@ -691,10 +676,12 @@ public class ExampleVisitor extends AbstractVisitor {
 		return false;
 	}
 
-	private String getReturnValue(Object o) {
-		if (o instanceof String)
-			return (String) o;
-		return "";
+	private String buildString(ArrayStack<String> array) {
+		String out = "";
+		for (String s : array) {
+			out += s;
+		}
+		return out;
 	}
 
 }
