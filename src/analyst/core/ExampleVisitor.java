@@ -368,6 +368,7 @@ public class ExampleVisitor extends AbstractVisitor {
 		 */
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
+			System.out.println("Condition");
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if").markIncomplete();
 		}
 
@@ -399,8 +400,9 @@ public class ExampleVisitor extends AbstractVisitor {
 		String escaped_expression = buildString(expression).replace("\"", "\\\"").replace("\\", "\\\\").replace("|", "\\|");
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
+			System.out.println("label " + escaped_expression);
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(escaped_expression).saveCursor()
-					.addFlow("label", "True");
+					.addFlow("label", "ifTrue");
 		}
 
 		else if (matchLexical(__raw__, Semantic.WhileStatement)) {

@@ -15,15 +15,26 @@ public class ArraySet<T> extends ArrayList<T> {
     return super.add(e);
   }
 
-  @SuppressWarnings("unchecked")
   public boolean addAll(ArrayList<T> l) {
-    ArraySet<T> old = (ArraySet<T>) super.clone();
+    ArraySet<T> old = this.clone();
     for (T e : l) {
       this.add(e);
     }
     if (!old.equals(this))
       return true;
     return false;
+  }
+
+  public T getLast() {
+    if (super.isEmpty())
+      return null;
+    return super.get(super.size() - 1);
+  }
+
+  public T removeLast() {
+    if (super.isEmpty())
+      return null;
+    return super.remove(super.size() - 1);
   }
 
   public boolean equals(ArraySet<T> s) {
@@ -34,6 +45,14 @@ public class ArraySet<T> extends ArrayList<T> {
         return false;
     }
     return true;
+  }
+
+  public ArraySet<T> clone() {
+    ArraySet<T> new_set = new ArraySet<T>();
+    for (T t : this) {
+      new_set.add(t);
+    }
+    return new_set;
   }
 
 }
