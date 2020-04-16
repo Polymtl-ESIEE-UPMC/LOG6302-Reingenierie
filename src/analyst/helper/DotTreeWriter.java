@@ -10,6 +10,7 @@ import analyst.core.zeus.DotNodeCFG;
 import analyst.core.zeus.DotNodeUML;
 import analyst.core.zeus.Flow;
 
+/* writer for CFG and UML */
 public class DotTreeWriter extends DotWriter {
 
   private String path;

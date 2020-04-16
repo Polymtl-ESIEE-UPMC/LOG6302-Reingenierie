@@ -11,9 +11,11 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final ClassDeclaration node, final Object __raw__) {
+		/* Commencer la declaration de class */
 		Zeus.singleton.declareClass();
 		propagate(node, new Data(null, Semantic.ClassMetadata, null));
 		Zeus.singleton.disconnectClassDatabase();
+		/* Finir la declaration de class */
 		return __raw__;
 	}
 
@@ -28,9 +30,11 @@ public class ExampleVisitor extends AbstractVisitor {
 	private Object declareClassMetadata(final SimpleNode node, final Object __raw__, final String type) {
 
 		if (matchLexical(__raw__, Semantic.ClassMetadata)) {
+			/* Class or Enum */
 			Zeus.singleton.connectClassDatabase().type = type;
 			ArrayStack<String> name = new ArrayStack<String>();
 			node.jjtGetChild(0).jjtAccept(this, new Data(__raw__, name));
+			/* Class name */
 			Zeus.singleton.connectClassDatabase().name = buildString(name);
 			propagate(node, __raw__);
 		}
@@ -74,7 +78,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	private Object declareClassMember(final SimpleNode node, final Object __raw__, final String type) {
 
 		if (matchContext(__raw__, Semantic.ClassBody)) {
-			if (type.equals("void"))
+			if (type.equals("void")) /* This is void method */
 				Zeus.singleton.connectClassDatabase().declare("void", null);
 			propagate(node, new Data(null, Semantic.ClassBody.Member, null));
 		}
@@ -101,6 +105,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	private Object declareLastMemberAsMethod(final SimpleNode node, final Object __raw__) {
 
 		if (matchLexical(__raw__, Semantic.ClassBody.Member)) {
+			/* Commencer la declaration de method */
 			Zeus.singleton.connectClassDatabase().declareMethod();
 			propagate(node, new Data(__raw__, Semantic.MethodMetadata, null));
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end().exit();
@@ -130,6 +135,7 @@ public class ExampleVisitor extends AbstractVisitor {
 
 		if (matchContext(__raw__, Semantic.MethodBody)) {
 			propagate(node, new Data(__raw__, Semantic.IfStatement, null));
+			/* finish if statement */
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().exit();
 		}
 
@@ -145,6 +151,7 @@ public class ExampleVisitor extends AbstractVisitor {
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loadCursor().addFlow("label", "False");
 			propagate(node, new Data(__raw__, null, null));
+			/* finish else statement */
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().end();
 		}
 
@@ -157,6 +164,7 @@ public class ExampleVisitor extends AbstractVisitor {
 
 	public Object visit(final NoElseStatement node, final Object __raw__) {
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
+			/* finish no else statement */
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().loadCursor().addFlow("label", "False").end();
 		}
 		propagate(node, new Data(null, null, null));
@@ -348,7 +356,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final ExpressionRest node, final Object __raw__) {
-
+		/* Right part of assign statement */
 		if (matchLexical(__raw__, Semantic.AssignStatement)) {
 			ArrayStack<String> expression = new ArrayStack<String>();
 			propagate(node, new Data(Semantic.AssignStatement.Expression, Semantic.AssignStatement.Expression, expression));
@@ -368,7 +376,6 @@ public class ExampleVisitor extends AbstractVisitor {
 		 */
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			System.out.println("Condition");
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().begin("if").markIncomplete();
 		}
 
@@ -400,7 +407,6 @@ public class ExampleVisitor extends AbstractVisitor {
 		String escaped_expression = buildString(expression).replace("\"", "\\\"").replace("\\", "\\\\").replace("|", "\\|");
 
 		if (matchLexical(__raw__, Semantic.IfStatement)) {
-			System.out.println("label " + escaped_expression);
 			Zeus.singleton.connectClassDatabase().connectMethodDatabase().modify(escaped_expression).saveCursor()
 					.addFlow("label", "ifTrue");
 		}
@@ -442,6 +448,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final Expression1Rest node, final Object __raw__) {
+		/* Expression ? a : b */
 		ArrayStack<String> expression = new ArrayStack<String>();
 		expression.push(" ? ");
 		node.jjtGetChild(0).jjtAccept(this, new Data(__raw__, expression));
@@ -512,6 +519,7 @@ public class ExampleVisitor extends AbstractVisitor {
 	}
 
 	public Object visit(final IdentifierSuffix node, final Object __raw__) {
+		/* If its a function this part is calling arguments or array accessor */
 		if (matchContext(__raw__, Semantic.AssignStatement)) {
 			ArrayStack<String> expression = new ArrayStack<String>();
 			propagate(node, new Data(Semantic.AssignStatement.Expression, null, expression));

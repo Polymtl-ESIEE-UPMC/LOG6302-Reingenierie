@@ -2,6 +2,7 @@ package analyst.core.zeus;
 
 import java.util.HashSet;
 
+/* mirror de ClassData pour l'affichage */
 public class DotNodeUML extends ClassData {
 
   public boolean is_place_holder = false;

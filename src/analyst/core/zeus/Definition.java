@@ -4,7 +4,7 @@ public class Definition {
   public final String id;
   public final String variable;
   public String expression;
-  public final String flow;
+  public final String flow; /* flow qui genere ce definition */
 
   public Definition(final String id, final String variable, final String flow) {
     this.id = id;

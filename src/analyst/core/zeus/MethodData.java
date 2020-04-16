@@ -82,6 +82,7 @@ public class MethodData {
     return this;
   }
 
+  /* add flow begin of control structure */
   public MethodData begin(final String type) {
     return begin(type, "");
   }
@@ -142,6 +143,7 @@ public class MethodData {
     return this;
   }
 
+  /* mark flow to be modified later */
   public MethodData markIncomplete() {
     flow_database.get(this.current_cursor).incomplete = true;
     return this;
@@ -198,6 +200,7 @@ public class MethodData {
     return this;
   }
 
+  /* every flow after this flow is dead code */
   private void blockFlowThenLinkTo(final Flow flow) {
     final String dead_flow = this.current_cursor;
     jumpTo(flow);
@@ -265,6 +268,7 @@ public class MethodData {
   public void exit() {
     final String entry = this.current_begin.pop();
     this.current_end.pop();
+    /* si on a fini le method, alors */
     if (this.current_begin.isEmpty()) {
       this.current_cursor = entry;
       computeKill();

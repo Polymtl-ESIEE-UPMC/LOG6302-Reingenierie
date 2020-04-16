@@ -39,14 +39,11 @@ run: clear
 test: clear
 	java -cp bin javaparser.JavaParser1_7 test/Test.java
 
-worldcount: clear
+wordcount: clear
 	java -cp bin javaparser.JavaParser1_7 test/WordCount.java
 
 dot:
-	-find results/uml/dot -type f -name "*.dot" | xargs dot -Tpng -O
-	-mkdir -p results/uml/png && mv results/uml/dot/*.png results/uml/png
-	-find results/cfg/dot -type f -name "*.dot" | xargs dot -Tpng -O
-	-mkdir -p results/cfg/png && mv results/cfg/dot/*.png results/cfg/png
+	-find results -type f -name "*.dot" | xargs dot -Tpng -O
 
 ast:
 	java -cp bin analyst.helper.ASTWriter $(FROM) $(TO) $(DEPTH)

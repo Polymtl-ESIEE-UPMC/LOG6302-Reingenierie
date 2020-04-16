@@ -2,6 +2,7 @@ package analyst.helper;
 
 import java.util.ArrayList;
 
+/* Set backed by ArrayList, can't have 2 exact same element */
 public class ArraySet<T> extends ArrayList<T> {
 
   /**

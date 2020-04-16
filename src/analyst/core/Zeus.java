@@ -8,6 +8,7 @@ import analyst.core.zeus.DotNodeUML;
 import analyst.helper.ArrayStack;
 import analyst.helper.DotTreeWriter;
 
+/* Singleton Zeus */
 public class Zeus {
 
   private final boolean FEATURE_FLAG_UML = false;
@@ -20,16 +21,18 @@ public class Zeus {
 
   public static Zeus singleton = new Zeus();
 
+  /* Commencer la declaration un nouveau class */
   public ClassData declareClass() {
     this.class_database.push(new ClassData());
     return this.class_database.peek();
   }
 
+  /* Continuer la declaration de la class actuel */
   public ClassData connectClassDatabase() {
     return this.class_database.peek();
   }
 
-  // quand on fini la declaration on sync sur la structure de .dot
+  // quand on fini la declaration on sync sur le DotTree
   public void disconnectClassDatabase() {
     if (FEATURE_FLAG_UML)
       updateUML();
@@ -58,8 +61,10 @@ public class Zeus {
     this.dot_tree_cfg.put(node.name, node);
   }
 
-  // la fonction done qui est appele dans le parser, une fois il termine tous les
-  // parsings
+  /*
+   * la fonction done qui est appele dans le parser, une fois il termine tous les
+   * parsings pour trigger l'ecriture au dot files
+   */
   public void done() {
     if (FEATURE_FLAG_UML)
       (new DotTreeWriter()).saveAsUML(this.dot_tree_uml);

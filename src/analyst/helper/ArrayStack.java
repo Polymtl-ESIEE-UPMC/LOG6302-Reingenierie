@@ -2,6 +2,7 @@ package analyst.helper;
 
 import java.util.ArrayList;
 
+/* Stack backed by ArrayList, can behave both like stack and arraylist */
 public class ArrayStack<T> extends ArrayList<T> {
 
   /**
